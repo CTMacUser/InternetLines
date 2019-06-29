@@ -15,7 +15,7 @@ public struct LineTerminatorSearchTargets: OptionSet, Hashable {
 
     public let rawValue: UInt
 
-    public init(rawValue: RawValue) {
+    public init(rawValue: UInt) {
         self.rawValue = rawValue
     }
 
