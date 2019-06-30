@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OptionalTraversal
 
 
 // MARK: - Line-Breaking Sequence Targets
@@ -61,24 +62,11 @@ struct LineTerminatorLocationIterator<Base: Collection> where Base.Element: Equa
 
 }
 
-extension Collection {
-
-    /// Returns the position immediately after the given index, if they're
-    /// dereferencable.
-    func elementIndex(after i: Index) -> Index? {
-        precondition(i < endIndex)
-
-        let next = index(after: i)
-        return next < endIndex ? next : nil
-    }
-
-}
-
 extension LineTerminatorLocationIterator: IteratorProtocol {
 
     mutating func next() -> Range<Base.Index>? {
         var result: Range<Base.Index>?
-        var first = collection.isEmpty ? nil : collection.startIndex
+        var first = collection.startingIndex
         var second = first.flatMap { collection.elementIndex(after: $0) }
         var third = second.flatMap { collection.elementIndex(after: $0) }
         while let firstIndex = first, result == nil {
@@ -182,18 +170,6 @@ extension LineTerminatorLocations: Collection {
 extension LineTerminatorLocations.Index: Hashable where Base.Index: Hashable {}
 
 // MARK: Bi-directional Collection
-
-extension BidirectionalCollection {
-
-    /// Returns the position immediately before the given index, if it's
-    /// dereferencable.
-    func elementIndex(before i: Index) -> Index? {
-        guard i > startIndex else { return nil }
-
-        return index(before: i)
-    }
-
-}
 
 extension LineTerminatorLocations: BidirectionalCollection where Base: BidirectionalCollection {
 
