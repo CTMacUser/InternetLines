@@ -235,11 +235,32 @@ extension Collection {
 
 }
 
-extension Collection where Element: Equatable & InternetLineBreakerValues {
+extension Collection where Element: ExpressibleByUnicodeScalarLiteral & Equatable {
 
-    /// Returns a collection of this collection line-terminator sequence locations.
-    func lineTerminatorLocations(considering targets: LineTerminatorSearchTargets) -> LineTerminatorLocations<Self> {
-        return lineTerminatorLocations(considering: targets, isCarriageReturn: { $0 == Element.crValue }, isLineFeed: { $0 == Element.lfValue })
+    /// Returns a collection of this collection's line-terminator sequence
+    /// locations.
+    ///
+    /// - Parameter targets: The line-terminating subsequences to accept.
+    ///
+    /// - Returns: A collection adaptor vending the locations (as index ranges)
+    ///   of each qualifying line-terminating subsequence.
+    public func lineTerminatorLocations(considering targets: LineTerminatorSearchTargets) -> LineTerminatorLocations<Self> {
+        return lineTerminatorLocations(considering: targets, isCarriageReturn: { $0 == "\r" }, isLineFeed: { $0 == "\n" })
+    }
+
+}
+
+extension Collection where Element: ExpressibleByIntegerLiteral & Equatable {
+
+    /// Returns a collection of this collection's line-terminator sequence
+    /// locations.
+    ///
+    /// - Parameter targets: The line-terminating subsequences to accept.
+    ///
+    /// - Returns: A collection adaptor vending the locations (as index ranges)
+    ///   of each qualifying line-terminating subsequence.
+    public func lineTerminatorLocations(considering targets: LineTerminatorSearchTargets) -> LineTerminatorLocations<Self> {
+        return lineTerminatorLocations(considering: targets, isCarriageReturn: { $0 == 0x0D }, isLineFeed: { $0 == 0x0A })
     }
 
 }
