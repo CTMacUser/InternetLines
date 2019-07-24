@@ -31,46 +31,46 @@ class LineTerminatorLocationsTests: XCTestCase {
         let sample = Array("The quick\rbrown fox\njumped over\r\nthe lazy\r\r\ndog".unicodeScalars)
 
         // Check every kind of line terminator.
-        let allSample = LineTerminatorLocations(base: sample, targets: .all)
+        let allSample = sample.lineTerminatorLocations(considering: .all)
         XCTAssertEqual(Array(AnySequence(allSample)), [9..<10, 19..<20, 31..<33, 41..<44])
 
-        let paranoidSample = LineTerminatorLocations(base: sample, targets: .paranoid)
+        let paranoidSample = sample.lineTerminatorLocations(considering: .paranoid)
         XCTAssertEqual(Array(AnySequence(paranoidSample)), [9..<10, 19..<20, 31..<33, 41..<44])
 
         // Check restricted set of terminators
         // (Without support for CR-CRLF, it breaks down to CR then CRLF.)
-        let standardSample = LineTerminatorLocations(base: sample, targets: .standard)
+        let standardSample = sample.lineTerminatorLocations(considering: .standard)
         XCTAssertEqual(Array(AnySequence(standardSample)), [9..<10, 19..<20, 31..<33, 41..<42, 42..<44])
 
         // (Only the last part of the CR-CRLF is read in.)
-        let strictSample = LineTerminatorLocations(base: sample, targets: .strict)
+        let strictSample = sample.lineTerminatorLocations(considering: .strict)
         XCTAssertEqual(Array(AnySequence(strictSample)), [31..<33, 42..<44])
 
         // Check what happens when no line terminators are searched for.
-        let noSample = LineTerminatorLocations(base: sample, targets: [])
+        let noSample = sample.lineTerminatorLocations(considering: [])
         XCTAssertTrue(Array(AnySequence(noSample)).isEmpty)
 
         // Check each terminator individually, noting CR-CRLF -> CRLF, etc.
-        let crSample = LineTerminatorLocations(base: sample, targets: .cr)
+        let crSample = sample.lineTerminatorLocations(considering: .cr)
         XCTAssertEqual(Array(AnySequence(crSample)), [9..<10, 31..<32, 41..<42, 42..<43])
 
-        let lfSample = LineTerminatorLocations(base: sample, targets: .lf)
+        let lfSample = sample.lineTerminatorLocations(considering: .lf)
         XCTAssertEqual(Array(AnySequence(lfSample)), [19..<20, 32..<33, 43..<44])
 
-        let crlfSample = LineTerminatorLocations(base: sample, targets: .crlf)
+        let crlfSample = sample.lineTerminatorLocations(considering: .crlf)
         XCTAssertEqual(Array(AnySequence(crlfSample)), [31..<33, 42..<44])
 
-        let crcrlfSample = LineTerminatorLocations(base: sample, targets: .crcrlf)
+        let crcrlfSample = sample.lineTerminatorLocations(considering: .crcrlf)
         XCTAssertEqual(Array(AnySequence(crcrlfSample)), [41..<44])
 
         // Check an empty string.
-        let allEmpty = LineTerminatorLocations(base: [UnicodeScalar](), targets: .all)
+        let allEmpty = [UnicodeScalar]().lineTerminatorLocations(considering: .all)
         XCTAssertTrue(Array(AnySequence(allEmpty)).isEmpty)
 
         // Check underestimated count when a line terminator starts the text.
         XCTAssertEqual(allEmpty.underestimatedCount, 0)
-        XCTAssertEqual(LineTerminatorLocations(base: sample.dropFirst(9), targets: .cr).underestimatedCount, 1)
-        XCTAssertEqual(LineTerminatorLocations(base: sample.dropFirst(9), targets: .lf).underestimatedCount, 0)
+        XCTAssertEqual(sample.dropFirst(9).lineTerminatorLocations(considering: .cr).underestimatedCount, 1)
+        XCTAssertEqual(sample.dropFirst(9).lineTerminatorLocations(considering: .lf).underestimatedCount, 0)
     }
 
     // Test search code for line-breaking sequence locations.
@@ -79,43 +79,43 @@ class LineTerminatorLocationsTests: XCTestCase {
         let sample = Array("The quick\rbrown fox\njumped over\r\nthe lazy\r\r\ndog".unicodeScalars)
 
         // Check every kind of line terminator.
-        let allSample = LineTerminatorLocations(base: sample, targets: .all)
+        let allSample = sample.lineTerminatorLocations(considering: .all)
         XCTAssertFalse(allSample.isEmpty)
         XCTAssertEqual(allSample.count, 4)
         XCTAssertEqual(allSample.first, 9..<10)
         XCTAssertEqual(allSample.indices.map({allSample[$0]}), [9..<10, 19..<20, 31..<33, 41..<44])
 
-        let paranoidSample = LineTerminatorLocations(base: sample, targets: .paranoid)
+        let paranoidSample = sample.lineTerminatorLocations(considering: .paranoid)
         XCTAssertEqual(Array(paranoidSample.indices.map({paranoidSample[$0]})), [9..<10, 19..<20, 31..<33, 41..<44])
 
         // Check restricted set of terminators
         // (Without support for CR-CRLF, it breaks down to CR then CRLF.)
-        let standardSample = LineTerminatorLocations(base: sample, targets: .standard)
+        let standardSample = sample.lineTerminatorLocations(considering: .standard)
         XCTAssertEqual(Array(standardSample.indices.map({standardSample[$0]})), [9..<10, 19..<20, 31..<33, 41..<42, 42..<44])
 
         // (Only the last part of the CR-CRLF is read in.)
-        let strictSample = LineTerminatorLocations(base: sample, targets: .strict)
+        let strictSample = sample.lineTerminatorLocations(considering: .strict)
         XCTAssertEqual(Array(strictSample.indices.map({strictSample[$0]})), [31..<33, 42..<44])
 
         // Check what happens when no line terminators are searched for.
-        let noSample = LineTerminatorLocations(base: sample, targets: [])
+        let noSample = sample.lineTerminatorLocations(considering: [])
         XCTAssertTrue(noSample.isEmpty)
 
         // Check each terminator individually, noting CR-CRLF -> CRLF, etc.
-        let crSample = LineTerminatorLocations(base: sample, targets: .cr)
+        let crSample = sample.lineTerminatorLocations(considering: .cr)
         XCTAssertEqual(Array(crSample.indices.map({crSample[$0]})), [9..<10, 31..<32, 41..<42, 42..<43])
 
-        let lfSample = LineTerminatorLocations(base: sample, targets: .lf)
+        let lfSample = sample.lineTerminatorLocations(considering: .lf)
         XCTAssertEqual(Array(lfSample.indices.map({lfSample[$0]})), [19..<20, 32..<33, 43..<44])
 
-        let crlfSample = LineTerminatorLocations(base: sample, targets: .crlf)
+        let crlfSample = sample.lineTerminatorLocations(considering: .crlf)
         XCTAssertEqual(Array(crlfSample.indices.map({crlfSample[$0]})), [31..<33, 42..<44])
 
-        let crcrlfSample = LineTerminatorLocations(base: sample, targets: .crcrlf)
+        let crcrlfSample = sample.lineTerminatorLocations(considering: .crcrlf)
         XCTAssertEqual(Array(crcrlfSample.indices.map({crcrlfSample[$0]})), [41..<44])
 
         // Check an empty string.
-        let allEmpty = LineTerminatorLocations(base: [UnicodeScalar](), targets: .all)
+        let allEmpty = [UnicodeScalar]().lineTerminatorLocations(considering: .all)
         XCTAssertTrue(allEmpty.isEmpty)
     }
 
@@ -125,40 +125,40 @@ class LineTerminatorLocationsTests: XCTestCase {
         let sample = Array("The quick\rbrown fox\njumped over\r\nthe lazy\r\r\ndog".unicodeScalars)
 
         // Check every kind of line terminator.
-        let allSample = LineTerminatorLocations(base: sample, targets: .all)
+        let allSample = sample.lineTerminatorLocations(considering: .all)
         XCTAssertEqual(Array(allSample.indices), allSample.reversed().indices.map { allSample.index(before: $0.base) }.reversed())
 
-        let paranoidSample = LineTerminatorLocations(base: sample, targets: .paranoid)
+        let paranoidSample = sample.lineTerminatorLocations(considering: .paranoid)
         XCTAssertEqual(Array(paranoidSample.indices), paranoidSample.reversed().indices.map { paranoidSample.index(before: $0.base) }.reversed())
 
         // Check restricted set of terminators
         // (Without support for CR-CRLF, it breaks down to CR then CRLF.)
-        let standardSample = LineTerminatorLocations(base: sample, targets: .standard)
+        let standardSample = sample.lineTerminatorLocations(considering: .standard)
         XCTAssertEqual(Array(standardSample.indices), standardSample.reversed().indices.map { standardSample.index(before: $0.base) }.reversed())
 
         // (Only the last part of the CR-CRLF is read in.)
-        let strictSample = LineTerminatorLocations(base: sample, targets: .strict)
+        let strictSample = sample.lineTerminatorLocations(considering: .strict)
         XCTAssertEqual(Array(strictSample.indices), strictSample.reversed().indices.map { strictSample.index(before: $0.base) }.reversed())
 
         // Check what happens when no line terminators are searched for.
-        let noSample = LineTerminatorLocations(base: sample, targets: [])
+        let noSample = sample.lineTerminatorLocations(considering: [])
         XCTAssertTrue(noSample.reversed().isEmpty)
 
         // Check each terminator individually, noting CR-CRLF -> CRLF, etc.
-        let crSample = LineTerminatorLocations(base: sample, targets: .cr)
+        let crSample = sample.lineTerminatorLocations(considering: .cr)
         XCTAssertEqual(Array(crSample.indices), crSample.reversed().indices.map { crSample.index(before: $0.base) }.reversed())
 
-        let lfSample = LineTerminatorLocations(base: sample, targets: .lf)
+        let lfSample = sample.lineTerminatorLocations(considering: .lf)
         XCTAssertEqual(Array(lfSample.indices), lfSample.reversed().indices.map { lfSample.index(before: $0.base) }.reversed())
 
-        let crlfSample = LineTerminatorLocations(base: sample, targets: .crlf)
+        let crlfSample = sample.lineTerminatorLocations(considering: .crlf)
         XCTAssertEqual(Array(crlfSample.indices), crlfSample.reversed().indices.map { crlfSample.index(before: $0.base) }.reversed())
 
-        let crcrlfSample = LineTerminatorLocations(base: sample, targets: .crcrlf)
+        let crcrlfSample = sample.lineTerminatorLocations(considering: .crcrlf)
         XCTAssertEqual(Array(crcrlfSample.indices), crcrlfSample.reversed().indices.map { crcrlfSample.index(before: $0.base) }.reversed())
 
         // Check an empty string.
-        let allEmpty = LineTerminatorLocations(base: [UnicodeScalar](), targets: .all)
+        let allEmpty = [UnicodeScalar]().lineTerminatorLocations(considering: .all)
         XCTAssertTrue(allEmpty.reversed().isEmpty)
     }
 

@@ -204,3 +204,14 @@ extension LineTerminatorLocations: BidirectionalCollection where Base: Bidirecti
     }
 
 }
+
+// MARK: Adaptor Generators
+
+extension Collection where Element: Equatable & InternetLineBreakerValues {
+
+    /// Returns a collection of this collection line-terminator sequence locations.
+    func lineTerminatorLocations(considering targets: LineTerminatorSearchTargets) -> LineTerminatorLocations<Self> {
+        return LineTerminatorLocations(base: self, targets: targets)
+    }
+
+}
