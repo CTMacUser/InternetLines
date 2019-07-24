@@ -52,12 +52,16 @@ public struct LineTerminatorSearchTargets: OptionSet, Hashable {
 
 /// An iterator over locations within a given collection of where its line-
 /// breaking sequences are.
-struct LineTerminatorLocationIterator<Base: Collection> where Base.Element: Equatable & InternetLineBreakerValues {
+struct LineTerminatorLocationIterator<Base: Collection> {
 
     /// The remaining sub-collection to search.
     var collection: Base.SubSequence
     /// Which line-breaking sequences to search for.
     let targets: LineTerminatorSearchTargets
+    /// The closure to identify carriage returns.
+    let isCr: (Base.Element) -> Bool
+    /// The closure to identify line feeds.
+    let isLf: (Base.Element) -> Bool
 
 }
 
@@ -77,13 +81,18 @@ extension LineTerminatorLocationIterator: IteratorProtocol {
 
             let secondValue = second.map { collection[$0] }
             let thirdValue = third.map { collection[$0] }
-            switch (collection[firstIndex], secondValue, thirdValue) {
-            case (Base.Element.crValue, Base.Element.crValue?, Base.Element.lfValue?) where targets.contains(.crcrlf):
+            let firstIsCr = isCr(collection[firstIndex])
+            let firstIsLf = isLf(collection[firstIndex])
+            let secondIsCr = secondValue.map { isCr($0) }
+            let secondIsLf = secondValue.map { isLf($0) }
+            let thirdIsLf = thirdValue.map { isLf($0) }
+            switch (firstIsCr, firstIsLf, secondIsCr, secondIsLf, thirdIsLf) {
+            case (true, _, true, _, true) where targets.contains(.crcrlf):
                 result = firstIndex..<collection.index(after: third!)
-            case (Base.Element.crValue, Base.Element.lfValue?, _) where targets.contains(.crlf):
+            case (true, _, _, true, _) where targets.contains(.crlf):
                 result = firstIndex..<collection.index(after: second!)
-            case (Base.Element.crValue, _, _) where targets.contains(.cr),
-                 (Base.Element.lfValue, _, _) where targets.contains(.lf):
+                case (true, _, _, _, _) where targets.contains(.cr),
+                     (_, true, _, _, _) where targets.contains(.lf):
                 result = firstIndex..<collection.index(after: firstIndex)
             default:
                 break
@@ -99,26 +108,27 @@ extension LineTerminatorLocationIterator: IteratorProtocol {
 
 /// A sequence over locations within a given collection of where its line-
 /// breaking sequences are.
-struct LineTerminatorLocations<Base: Collection> where Base.Element: Equatable & InternetLineBreakerValues {
+struct LineTerminatorLocations<Base: Collection> {
 
     /// The collection to search.
     let base: Base
     /// Which line-breaking sequences to search for.
     let targets: LineTerminatorSearchTargets
+    /// The closure to identify carriage returns.
+    let isCr: (Base.Element) -> Bool
+    /// The closure to identify line feeds.
+    let isLf: (Base.Element) -> Bool
 
 }
-
-extension LineTerminatorLocations: Equatable where Base: Equatable {}
-extension LineTerminatorLocations: Hashable where Base: Hashable {}
 
 extension LineTerminatorLocations: Sequence {
 
     __consuming func makeIterator() -> LineTerminatorLocationIterator<Base> {
-        return LineTerminatorLocationIterator(collection: base[...], targets: targets)
+        return LineTerminatorLocationIterator(collection: base[...], targets: targets, isCr: isCr, isLf: isLf)
     }
 
     var underestimatedCount: Int {
-        return base.prefix(3).lineTerminatorLocations(considering: targets).first == nil ? 0 : 1
+        return base.prefix(3).lineTerminatorLocations(considering: targets, isCarriageReturn: isCr, isLineFeed: isLf).first == nil ? 0 : 1
     }
 
 }
@@ -152,7 +162,7 @@ extension LineTerminatorLocations: Collection {
     }
 
     func index(after i: Index) -> Index {
-        var iterator = LineTerminatorLocationIterator<Base>(collection: base[i.indices.upperBound...], targets: targets)
+        var iterator = LineTerminatorLocationIterator<Base>(collection: base[i.indices.upperBound...], targets: targets, isCr: isCr, isLf: isLf)
         return iterator.next().map { Index(indices: $0) } ?? endIndex
     }
 
@@ -179,13 +189,17 @@ extension LineTerminatorLocations: BidirectionalCollection where Base: Bidirecti
 
             let firstValue = first.map { base[$0] }
             let secondValue = second.map { base[$0] }
-            switch (firstValue, secondValue, base[thirdIndex]) {
-            case (Base.Element.crValue?, Base.Element.crValue?, Base.Element.lfValue) where targets.contains(.crcrlf):
+            let firstIsCr = firstValue.map { isCr($0) }
+            let secondIsCr = secondValue.map { isCr($0) }
+            let thirdIsCr = isCr(base[thirdIndex])
+            let thirdIsLf = isLf(base[thirdIndex])
+            switch (firstIsCr, secondIsCr, thirdIsCr, thirdIsLf) {
+            case (true, true, _, true) where targets.contains(.crcrlf):
                 result = first! ..< base.index(after: thirdIndex)
-            case (_, Base.Element.crValue?, Base.Element.lfValue) where targets.contains(.crlf):
+            case (_, true, _, true) where targets.contains(.crlf):
                 result = second! ..< base.index(after: thirdIndex)
-            case (_, _, Base.Element.crValue) where targets.contains(.cr),
-                 (_, _, Base.Element.lfValue) where targets.contains(.lf):
+            case (_, _, true, _) where targets.contains(.cr),
+                 (_, _, _, true) where targets.contains(.lf):
                 result = thirdIndex..<base.index(after: thirdIndex)
             default:
                 break
@@ -198,11 +212,34 @@ extension LineTerminatorLocations: BidirectionalCollection where Base: Bidirecti
 
 // MARK: Adaptor Generators
 
+extension Collection {
+
+    /// Returns a collection of this collection's line-terminator sequence
+    /// locations, using the given predicates to identify line-breaking element
+    /// values.
+    ///
+    /// - Precondition: No element value can satisfy both `isCarriageReturn` and
+    ///   `isLineFeed` simultaneously.
+    ///
+    /// - Parameter targets: The line-terminating subsequences to accept.
+    /// - Parameter isCarriageReturn: A predicate that identifies a given
+    ///   element value as a carriage return.
+    /// - Parameter isLineFeed: A predicate that identifies a given element
+    ///   value as a line feed.
+    ///
+    /// - Returns: A collection adaptor vending the locations (as index ranges)
+    ///   of each qualifying line-terminating subsequence.
+    func lineTerminatorLocations(considering targets: LineTerminatorSearchTargets, isCarriageReturn: @escaping (Element) -> Bool, isLineFeed: @escaping (Element) -> Bool) -> LineTerminatorLocations<Self> {
+        return LineTerminatorLocations(base: self, targets: targets, isCr: isCarriageReturn, isLf: isLineFeed)
+    }
+
+}
+
 extension Collection where Element: Equatable & InternetLineBreakerValues {
 
     /// Returns a collection of this collection line-terminator sequence locations.
     func lineTerminatorLocations(considering targets: LineTerminatorSearchTargets) -> LineTerminatorLocations<Self> {
-        return LineTerminatorLocations(base: self, targets: targets)
+        return lineTerminatorLocations(considering: targets, isCarriageReturn: { $0 == Element.crValue }, isLineFeed: { $0 == Element.lfValue })
     }
 
 }
