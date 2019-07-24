@@ -52,7 +52,7 @@ public struct LineTerminatorSearchTargets: OptionSet, Hashable {
 
 /// An iterator over locations within a given collection of where its line-
 /// breaking sequences are.
-struct LineTerminatorLocationIterator<Base: Collection> {
+public struct LineTerminatorLocationIterator<Base: Collection> {
 
     /// The remaining sub-collection to search.
     var collection: Base.SubSequence
@@ -67,7 +67,7 @@ struct LineTerminatorLocationIterator<Base: Collection> {
 
 extension LineTerminatorLocationIterator: IteratorProtocol {
 
-    mutating func next() -> Range<Base.Index>? {
+    mutating public func next() -> Range<Base.Index>? {
         var result: Range<Base.Index>?
         var first = collection.startingIndex
         var second = first.flatMap { collection.elementIndex(after: $0) }
@@ -108,7 +108,7 @@ extension LineTerminatorLocationIterator: IteratorProtocol {
 
 /// A sequence over locations within a given collection of where its line-
 /// breaking sequences are.
-struct LineTerminatorLocations<Base: Collection> {
+public struct LineTerminatorLocations<Base: Collection> {
 
     /// The collection to search.
     let base: Base
@@ -123,11 +123,11 @@ struct LineTerminatorLocations<Base: Collection> {
 
 extension LineTerminatorLocations: Sequence {
 
-    __consuming func makeIterator() -> LineTerminatorLocationIterator<Base> {
+    __consuming public func makeIterator() -> LineTerminatorLocationIterator<Base> {
         return LineTerminatorLocationIterator(collection: base[...], targets: targets, isCr: isCr, isLf: isLf)
     }
 
-    var underestimatedCount: Int {
+    public var underestimatedCount: Int {
         return base.prefix(3).lineTerminatorLocations(considering: targets, isCarriageReturn: isCr, isLineFeed: isLf).first == nil ? 0 : 1
     }
 
@@ -137,31 +137,31 @@ extension LineTerminatorLocations: Sequence {
 
 extension LineTerminatorLocations: Collection {
 
-    struct Index: Comparable {
+    public struct Index: Comparable {
         /// Where the line-breaking sequence is located in `base`.
         let indices: Range<Base.Index>
 
-        static func < (lhs: Index, rhs: Index) -> Bool {
+        public static func < (lhs: Index, rhs: Index) -> Bool {
             return lhs.indices.lowerBound < rhs.indices.lowerBound
         }
     }
 
     // Note: This runs at O(n)!
-    var startIndex: Index {
+    public var startIndex: Index {
         var iterator = makeIterator()
         return iterator.next().map { Index(indices: $0) } ?? endIndex
     }
-    var endIndex: Index {
+    public var endIndex: Index {
         return Index(indices: base.endIndex..<base.endIndex)
     }
 
-    subscript(position: Index) -> Range<Base.Index> {
+    public subscript(position: Index) -> Range<Base.Index> {
         precondition(!position.indices.isEmpty)
 
         return position.indices
     }
 
-    func index(after i: Index) -> Index {
+    public func index(after i: Index) -> Index {
         var iterator = LineTerminatorLocationIterator<Base>(collection: base[i.indices.upperBound...], targets: targets, isCr: isCr, isLf: isLf)
         return iterator.next().map { Index(indices: $0) } ?? endIndex
     }
@@ -174,7 +174,7 @@ extension LineTerminatorLocations.Index: Hashable where Base.Index: Hashable {}
 
 extension LineTerminatorLocations: BidirectionalCollection where Base: BidirectionalCollection {
 
-    func index(before i: Index) -> Index {
+    public func index(before i: Index) -> Index {
         // Same as the iterator's next(), but backwards
         var result: Range<Base.Index>?
         var third = base.elementIndex(before: i.indices.lowerBound)
@@ -229,7 +229,7 @@ extension Collection {
     ///
     /// - Returns: A collection adaptor vending the locations (as index ranges)
     ///   of each qualifying line-terminating subsequence.
-    func lineTerminatorLocations(considering targets: LineTerminatorSearchTargets, isCarriageReturn: @escaping (Element) -> Bool, isLineFeed: @escaping (Element) -> Bool) -> LineTerminatorLocations<Self> {
+    public func lineTerminatorLocations(considering targets: LineTerminatorSearchTargets, isCarriageReturn: @escaping (Element) -> Bool, isLineFeed: @escaping (Element) -> Bool) -> LineTerminatorLocations<Self> {
         return LineTerminatorLocations(base: self, targets: targets, isCr: isCarriageReturn, isLf: isLineFeed)
     }
 
