@@ -21,7 +21,7 @@ public struct LineTerminatorSearchTargets: OptionSet, Hashable {
     }
 
     /// Offsets for each option bit.
-    enum OptionOffset: Int {
+    private enum OptionOffset: Int {
         case lf, crlf, crcrlf, cr
     }
 
