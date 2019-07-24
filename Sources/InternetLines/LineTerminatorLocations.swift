@@ -5,7 +5,6 @@
 //  Created by Daryle Walker on 6/15/19.
 //
 
-import Foundation
 import OptionalTraversal
 
 
@@ -119,15 +118,7 @@ extension LineTerminatorLocations: Sequence {
     }
 
     var underestimatedCount: Int {
-        switch (base.first, base.dropFirst().first, base.dropFirst(2).first) {
-        case (Base.Element.crValue?, Base.Element.crValue?, Base.Element.lfValue?) where targets.contains(.crcrlf),
-             (Base.Element.crValue?, Base.Element.lfValue?, _) where targets.contains(.crlf),
-             (Base.Element.crValue?, _, _) where targets.contains(.cr),
-             (Base.Element.lfValue?, _, _) where targets.contains(.lf):
-            return 1
-        default:
-            return 0
-        }
+        return base.prefix(3).lineTerminatorLocations(considering: targets).first == nil ? 0 : 1
     }
 
 }
