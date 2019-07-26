@@ -231,7 +231,7 @@ class LineTerminatorLocationsTests: XCTestCase {
         XCTAssertEqual(allEmpty.underestimatedCount, 0)
         XCTAssertEqual(sample.dropFirst(9).lineTerminatorLocations(considering: .cr).underestimatedCount, 1)
         XCTAssertEqual(sample.dropFirst(9).lineTerminatorLocations(considering: .lf).underestimatedCount, 0)
-}
+    }
 
     static var allTests = [
         ("testLineTerminatorSearchTargets", testLineTerminatorSearchTargets),
