@@ -2,3 +2,408 @@
 //
 // SPDX-FileCopyrightText: © 2026 Daryle Walker (@CTMacUser)
 // SPDX-License-Identifier: MIT
+
+// MARK: Line-termination sequences
+
+/// The ASCII character sequence used to terminate a line,
+/// following common internet protocols.
+public enum InternetLineTerminator: Sendable {
+  /// No terminator (end of file).
+  case nothing
+  /// Line Feed (LF), `0x0A`.
+  case lineFeed
+  /// Line Tabulation (VT), `0x0B`.
+  ///
+  /// Also known as Vertical Tabulation.
+  case lineTabulation
+  /// Form Feed (FF), `0x0C`.
+  case formFeed
+  /// Carriage Return (CR), `0x0D`.
+  case carriageReturn
+  /// Carriage Return and Line Feed (CRLF), `0x0D` then `0x0A`.
+  case crlf
+}
+
+extension InternetLineTerminator: CaseIterable {}
+
+extension InternetLineTerminator: Comparable, Hashable {}
+
+extension InternetLineTerminator: Decodable, Encodable {}
+
+extension InternetLineTerminator: LosslessStringConvertible {
+  public init?(_ description: String) {
+    guard let cap = nameStringToTerminator[description] else { return nil }
+
+    self = cap
+  }
+
+  public var description: String {
+    // I don't know if there's any way to automate this.
+    // Any APIs you'd think cover this all assume that this property wasn't
+    // overridden. Whoops!
+    switch self {
+    case .nothing:
+      "nothing"
+    case .lineFeed:
+      "lineFeed"
+    case .lineTabulation:
+      "lineTabulation"
+    case .formFeed:
+      "formFeed"
+    case .carriageReturn:
+      "carriageReturn"
+    case .crlf:
+      "crlf"
+    }
+  }
+}
+
+extension InternetLineTerminator: RandomAccessCollection {
+  public typealias Element = UInt8
+  public typealias Index = Int
+
+  public func _copyToContiguousArray() -> ContiguousArray<Element> {
+    return switch self {
+    case .nothing:
+      []
+    case .lineFeed:
+      [0xA]
+    case .lineTabulation:
+      [0xB]
+    case .formFeed:
+      [0xC]
+    case .carriageReturn:
+      [0xD]
+    case .crlf:
+      [0xD, 0xA]
+    }
+  }
+  public func _customContainsEquatableElement(_ element: Element) -> Bool? {
+    return self._customIndexOfEquatableElement(element).map { $0 != .none }
+  }
+  public func _customIndexOfEquatableElement(_ element: Element) -> Index?? {
+    // I don't know if this is actually more efficient.
+    return switch (element, self) {
+    case (0xA, .lineFeed), (0xB, .lineTabulation), (0xC, .formFeed),
+      (0xD, .carriageReturn), (0xD, .crlf):
+      .some(0)
+    case (0xA, .crlf):
+      .some(1)
+    default:
+      .some(.none)
+    }
+  }
+  public func _customLastIndexOfEquatableElement(_ element: Element) -> Index?? {
+    // Each valid element appears only once in its string.
+    return self._customIndexOfEquatableElement(element)
+  }
+
+  public var endIndex: Index {
+    switch self {
+    case .nothing:
+      0
+    case .lineFeed, .lineTabulation, .formFeed, .carriageReturn:
+      1
+    case .crlf:
+      2
+    }
+  }
+  public var indices: Range<Index> { startIndex..<endIndex }
+  public var startIndex: Index { 0 }
+
+  public var count: Int { self.endIndex }
+  public var isEmpty: Bool { self == .nothing }
+
+  public func distance(from start: Index, to end: Index) -> Int {
+    return end - start
+  }
+
+  public func formIndex(after i: inout Index) {
+    i += 1
+  }
+  public func formIndex(before i: inout Index) {
+    i -= 1
+  }
+  public func index(_ i: Index, offsetBy distance: Int) -> Index {
+    return i + distance
+  }
+  public func index(after i: Index) -> Index {
+    return i + 1
+  }
+  public func index(before i: Index) -> Index {
+    return i - 1
+  }
+
+  public subscript(position: Index) -> Element {
+    return switch (self, position) {
+    case (.lineFeed, 0), (.crlf, 1):
+      0xA
+    case (.lineTabulation, 0):
+      0xB
+    case (.formFeed, 0):
+      0xC
+    case (.carriageReturn, 0), (.crlf, 0):
+      0xD
+    default:
+      preconditionFailure(
+        """
+        Index \(position) for \(#function) is out of range \
+        \(self.indices) in \(self).
+        """
+      )
+    }
+  }
+
+  public func withContiguousStorageIfAvailable<R>(
+    _ body: (UnsafeBufferPointer<Element>) throws -> R
+  ) rethrows -> R? {
+    return try self._copyToContiguousArray().withContiguousStorageIfAvailable(
+      body
+    )
+  }
+}
+
+extension InternetLineTerminator: RawRepresentable {
+  public var rawValue: String {
+    String(decoding: self._copyToContiguousArray(), as: UTF8.self)
+  }
+  public init?(rawValue: String) {
+    guard let cap = rawStringToTerminator[rawValue] else { return nil }
+
+    self = cap
+  }
+}
+
+// MARK: - Featured properties
+
+extension Sequence where Element == UInt8 {
+  /// Provides a stream that parses out each line within this sequence.
+  ///
+  /// The line is expressed as its bytes before the terminator,
+  /// then what the line's terminating byte sequence is.
+  public var internetLines: AsyncStream<(line: [UInt8], cap: InternetLineTerminator)> {
+    AsyncStream { continuation in
+      var parser = SplitFinder()
+      var lineBuffer = [UInt8]()
+      lineBuffer.reserveCapacity(Swift.min(self.underestimatedCount, 998))
+      for byte in self {
+        guard !Task.isCancelled else { break }
+
+        let processingAction = parser(processing: byte)
+        if processingAction.doCrBreak {
+          let yield = continuation.yield((lineBuffer, .carriageReturn))
+          lineBuffer.removeAll(keepingCapacity: true)
+          if case .terminated = yield {
+            break
+          }
+        }
+        if let cap = processingAction.primaryBreak {
+          let yield = continuation.yield((lineBuffer, cap))
+          lineBuffer.removeAll(keepingCapacity: true)
+          if case .terminated = yield {
+            break
+          }
+        }
+        if let retainedByte = processingAction.retention {
+          switch retainedByte {
+          case .cr:
+            break
+          case .normal:
+            lineBuffer.append(byte)
+          }
+        }
+      }
+
+      if parser.previousWasCR {
+        continuation.yield((lineBuffer, .carriageReturn))
+        lineBuffer.removeAll()
+      }
+      if !lineBuffer.isEmpty {
+        continuation.yield((lineBuffer, .nothing))
+        lineBuffer.removeAll()
+      }
+      continuation.finish()
+    }
+  }
+}
+
+extension Collection where Element == UInt8, Index: Sendable {
+  /// Provides a stream that parses out each line within this sequence.
+  ///
+  /// The line is expressed as the range of its bytes before the terminator,
+  /// then what the line's terminating byte sequence is.
+  public var internetLines: AsyncStream<(lineRange: Range<Index>, cap: InternetLineTerminator)> {
+    AsyncStream { continuation in
+      var parser = SplitFinder()
+      var start = self.startIndex
+      var lastCrIndex: Index?
+      for i in self.indices {
+        guard !Task.isCancelled else { break }
+
+        let processingAction = parser(processing: self[i])
+        if processingAction.doCrBreak {
+          let yield = continuation.yield(
+            (start..<lastCrIndex!, .carriageReturn)
+          )
+          assert(self.distance(from: lastCrIndex!, to: i) == 1)
+          start = i
+          lastCrIndex = nil
+          if case .terminated = yield {
+            break
+          }
+        }
+        if let cap = processingAction.primaryBreak {
+          let capStart = lastCrIndex ?? i
+          let yield = continuation.yield((start..<capStart, cap))
+          assert(0...1 ~= self.distance(from: capStart, to: i))
+          start = self.index(after: i)
+          lastCrIndex = nil
+          if case .terminated = yield {
+            break
+          }
+        }
+        if let retainedByte = processingAction.retention {
+          switch retainedByte {
+          case .cr:
+            lastCrIndex = i
+          case .normal:
+            break
+          }
+        }
+      }
+
+      if let lastCrIndex {
+        continuation.yield((start..<lastCrIndex, .carriageReturn))
+        start = self.index(after: lastCrIndex)
+      }
+      if start < self.endIndex {
+        continuation.yield((start..<self.endIndex, .nothing))
+      }
+      continuation.finish()
+    }
+  }
+}
+
+// MARK: - Implementation
+
+/// Look-up raw terminator strings to `InternetLineTerminator` values.
+private let rawStringToTerminator = Dictionary(
+  uniqueKeysWithValues: zip(
+    InternetLineTerminator.allCases.map(\.rawValue),
+    InternetLineTerminator.allCases
+  )
+)
+/// Look-up terminator name strings to `InternetLineTerminator` values.
+private let nameStringToTerminator = Dictionary(
+  uniqueKeysWithValues: zip(
+    InternetLineTerminator.allCases.map(\.description),
+    InternetLineTerminator.allCases
+  )
+)
+
+/// State machine identifying line-termination sequences within the stream of
+/// given bytes.
+private struct SplitFinder {
+  /// Flag indicating if the last processed byte was a Carriage Return (`0xD`).
+  var previousWasCR = false
+
+  /// How the client should proceed after processing a byte.
+  enum Action {
+    /// Which policy to use after reading a byte that won't (immediately)
+    /// break a line.
+    enum Retention {
+      /// Signals that a Carriage Return (`0x0D`) was encountered and should be
+      /// tracked by the state machine.
+      case cr
+      /// Signals that the byte is a standard data byte (not a terminator) and
+      /// should be included in the current line buffer.
+      case normal
+    }
+
+    /// Signals a line break triggered by a standard terminator
+    /// (*e.g.*, `LF`, `VT`, `FF`).
+    case breakWith(terminator: InternetLineTerminator)
+    /// Signals a line break triggered by a character that followed a `CR`
+    /// (which itself terminated the previous line).
+    case breakWithCrThen(terminator: InternetLineTerminator)
+    /// Indicates that the previous `CR` should have broken the line,
+    /// and the current non-terminating character is the start of a new line.
+    case breakWithCrThenRetain
+    /// Indicates that a `CR` occurred, following a previous `CR`.
+    /// The first `CR` breaks the line, the second `CR` is retained for
+    /// the next potential line break.
+    case breakWithCrThenRetainCr
+    /// A single `CR` has been encountered.
+    /// It is held, waiting to see if the *next* byte is `LF` (to form `CRLF`)
+    /// or something else (which would finalize the line break at the `CR`).
+    case retainCr
+    /// The character is not a terminator and does not follow a `CR`.
+    /// It is appended to the current line.
+    case retain
+
+    /// Whether an enqueued line ending with a CR needs to be produced before
+    /// handling the current byte.
+    var doCrBreak: Bool {
+      switch self {
+      case .breakWithCrThen, .breakWithCrThenRetain, .breakWithCrThenRetainCr:
+        true
+      default:
+        false
+      }
+    }
+    /// Whether the queued bytes need to be immediately produced as a line with
+    /// the returned line-terminating sequence.
+    var primaryBreak: InternetLineTerminator? {
+      switch self {
+      case .breakWith(terminator: let cap),
+        .breakWithCrThen(terminator: let cap):
+        cap
+      default:
+        nil
+      }
+    }
+    /// How processed byte should be remembered for a later line production,
+    /// if it should.
+    var retention: Retention? {
+      switch self {
+      case .breakWithCrThenRetainCr, .retainCr:
+        .cr
+      case .breakWithCrThenRetain, .retain:
+        .normal
+      default:
+        nil
+      }
+    }
+  }
+
+  /// Considers the given byte with the current state to
+  /// return the next action the line-reading client should do.
+  mutating func callAsFunction(processing byte: UInt8)
+    -> Action
+  {
+    defer { previousWasCR = byte == 0xD }
+
+    return switch (byte, previousWasCR) {
+    case (0xA, true):
+      .breakWith(terminator: .crlf)
+    case (0xA, false):
+      .breakWith(terminator: .lineFeed)
+    case (0xB, true):
+      .breakWithCrThen(terminator: .lineTabulation)
+    case (0xB, false):
+      .breakWith(terminator: .lineTabulation)
+    case (0xC, true):
+      .breakWithCrThen(terminator: .formFeed)
+    case (0xC, false):
+      .breakWith(terminator: .formFeed)
+    case (0xD, true):
+      .breakWithCrThenRetainCr
+    case (0xD, false):
+      .retainCr
+    case (_, true):
+      .breakWithCrThenRetain
+    case (_, false):
+      .retain
+    }
+  }
+}
