@@ -100,3 +100,14 @@ func lastTerminator(_ terminator: InternetLineTerminator) async throws {
   #expect(firstSequenceLine.cap == terminator)
   #expect(sequenceLines.count == 1)
 }
+
+/// A quick & dirty demostration.
+@Test("Example from the 'README.md' file")
+func basicExample() async throws {
+  let input = "Line 1\r\nLine 2\nLine 3\rLine 4"
+  let lines = await AnySequence(input.utf8)
+    .internetLines
+    .map { String(decoding: $0.line, as: UTF8.self) }
+    .reduce(into: []) { $0.append($1) }
+  #expect(lines == ["Line 1", "Line 2", "Line 3", "Line 4"])
+}
