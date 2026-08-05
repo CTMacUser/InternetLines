@@ -68,6 +68,22 @@ func printing() async throws {
     ]
   )
   #expect(terminatorTexts.compactMap(Terminator.init(_:)) == terminators)
+  #expect(Terminator("invalid") == nil)
+}
+
+/// Validates the raw representation and deserialization (round-trip) of
+/// all `InternetLineTerminator` enum cases.
+@Test("Raw representation tests")
+func rawRepresentables() async throws {
+  typealias Terminator = InternetLineTerminator
+
+  let terminators = Array(Terminator.allCases)
+  let terminatorRawValues = terminators.map(\.rawValue)
+
+  #expect(
+    terminatorRawValues.compactMap(Terminator.init(rawValue:)) == terminators
+  )
+  #expect(Terminator(rawValue: "invalid") == nil)
 }
 
 /// Validates, using parameterized testing,
@@ -110,4 +126,20 @@ func basicExample() async throws {
     .map { String(decoding: $0.line, as: UTF8.self) }
     .reduce(into: []) { $0.append($1) }
   #expect(lines == ["Line 1", "Line 2", "Line 3", "Line 4"])
+}
+
+/// A demostration with carriage returns.
+@Test("Hold back carriage-return productions until the next line break")
+func carriageReturnQueuing() async throws {
+  let input =
+    "Line 1\r\nLine 2\r\u{000B}Line 3\r\u{000C}Line 4\r\rLine 5\rLine 6\r"
+  let lines = await AnySequence(input.utf8)
+    .internetLines
+    .map { String(decoding: $0.line, as: UTF8.self) }
+    .reduce(into: []) { $0.append($1) }
+  #expect(
+    lines == [
+      "Line 1", "Line 2", "", "Line 3", "", "Line 4", "", "Line 5", "Line 6",
+    ]
+  )
 }
