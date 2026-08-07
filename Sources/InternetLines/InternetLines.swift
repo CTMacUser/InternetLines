@@ -93,7 +93,9 @@ extension Sequence where Element == UInt8 {
   ///
   /// The line is expressed as its bytes before the terminator,
   /// then what the line's terminating byte sequence is.
-  public var internetLines: AsyncStream<(line: [UInt8], cap: InternetLineTerminator)> {
+  public var internetLines:
+    AsyncStream<(line: [UInt8], cap: InternetLineTerminator)>
+  {
     AsyncStream { continuation in
       var parser = SplitFinder()
       var lineBuffer = [UInt8]()
@@ -144,7 +146,9 @@ extension Collection where Element == UInt8, Index: Sendable {
   ///
   /// The line is expressed as the range of its bytes before the terminator,
   /// then what the line's terminating byte sequence is.
-  public var internetLines: AsyncStream<(lineRange: Range<Index>, cap: InternetLineTerminator)> {
+  public var internetLines:
+    AsyncStream<(lineRange: Range<Index>, cap: InternetLineTerminator)>
+  {
     AsyncStream { continuation in
       var parser = SplitFinder()
       var start = self.startIndex
