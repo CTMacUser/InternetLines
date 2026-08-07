@@ -32,7 +32,7 @@ extension InternetLineTerminator: Decodable, Encodable {}
 
 extension InternetLineTerminator: LosslessStringConvertible {
   public init?(_ description: String) {
-    guard let cap = nameStringToTerminator[description] else { return nil }
+    guard let cap = Self.nameStringToTerminator[description] else { return nil }
 
     self = cap
   }
@@ -56,17 +56,34 @@ extension InternetLineTerminator: LosslessStringConvertible {
       "crlf"
     }
   }
+
+  /// Look-up terminator name strings to `InternetLineTerminator` values.
+  private static let nameStringToTerminator = Dictionary(
+    uniqueKeysWithValues: zip(
+      InternetLineTerminator.allCases.map(\.description),
+      InternetLineTerminator.allCases
+    )
+  )
 }
 
 extension InternetLineTerminator: RawRepresentable {
   public var rawValue: String {
     String(decoding: self._copyToContiguousArray(), as: UTF8.self)
   }
+
   public init?(rawValue: String) {
-    guard let cap = rawStringToTerminator[rawValue] else { return nil }
+    guard let cap = Self.rawStringToTerminator[rawValue] else { return nil }
 
     self = cap
   }
+
+  /// Look-up raw terminator strings to `InternetLineTerminator` values.
+  private static let rawStringToTerminator = Dictionary(
+    uniqueKeysWithValues: zip(
+      InternetLineTerminator.allCases.map(\.rawValue),
+      InternetLineTerminator.allCases
+    )
+  )
 }
 
 // MARK: - Featured properties
@@ -180,21 +197,6 @@ extension Collection where Element == UInt8, Index: Sendable {
 }
 
 // MARK: - Implementation
-
-/// Look-up raw terminator strings to `InternetLineTerminator` values.
-private let rawStringToTerminator = Dictionary(
-  uniqueKeysWithValues: zip(
-    InternetLineTerminator.allCases.map(\.rawValue),
-    InternetLineTerminator.allCases
-  )
-)
-/// Look-up terminator name strings to `InternetLineTerminator` values.
-private let nameStringToTerminator = Dictionary(
-  uniqueKeysWithValues: zip(
-    InternetLineTerminator.allCases.map(\.description),
-    InternetLineTerminator.allCases
-  )
-)
 
 /// State machine identifying line-termination sequences within the stream of
 /// given bytes.
