@@ -9,7 +9,8 @@ import Testing
 
 /// Validates that various line-ending characters correctly split an
 /// input stream into lines,
-/// covering both collection-based and sequence-based processing.
+/// covering conversion from regular sequences, collections,
+/// and asynchronous sequences.
 @Test("Checking each kind of splitting sequence")
 func linesSplitting() async throws {
   let input = "Line1\nLine2\rLine3\r\nLine4\u{000B}Line5\u{000C}Line6".utf8
@@ -51,6 +52,26 @@ func linesSplitting() async throws {
   #expect(sequenceLines[3] == (line: Array("Line4".utf8), cap: .lineTabulation))
   #expect(sequenceLines[4] == (line: Array("Line5".utf8), cap: .formFeed))
   #expect(sequenceLines[5] == (line: Array("Line6".utf8), cap: .nothing))
+
+  // AsyncSequence version
+  let byteStream = AsyncStream<UInt8> { continuation in
+    for byte in input {
+      continuation.yield(byte)
+    }
+    continuation.finish()
+  }
+  let streamLines = await byteStream.internetLines.reduce(into: []) {
+    $0.append($1)
+  }
+
+  #expect(streamLines.count == 6)
+
+  #expect(streamLines[0] == (line: Array("Line1".utf8), cap: .lineFeed))
+  #expect(streamLines[1] == (line: Array("Line2".utf8), cap: .carriageReturn))
+  #expect(streamLines[2] == (line: Array("Line3".utf8), cap: .crlf))
+  #expect(streamLines[3] == (line: Array("Line4".utf8), cap: .lineTabulation))
+  #expect(streamLines[4] == (line: Array("Line5".utf8), cap: .formFeed))
+  #expect(streamLines[5] == (line: Array("Line6".utf8), cap: .nothing))
 }
 
 /// Validates the string representation and deserialization (round-trip) of

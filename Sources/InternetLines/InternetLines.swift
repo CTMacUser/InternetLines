@@ -204,9 +204,14 @@ extension Collection where Element == UInt8, Index: Sendable {
 
 /// State machine identifying line-termination sequences within the stream of
 /// given bytes.
-private struct SplitFinder {
+struct SplitFinder {
+  /// Creates a line-splitting state machine.
+  init() {
+    // Nothing to do, but this is here for clarity.
+  }
+
   /// Flag indicating if the last processed byte was a Carriage Return (`0xD`).
-  var previousWasCR = false
+  private(set) var previousWasCR = false
 
   /// How the client should proceed after processing a byte.
   enum Action {
