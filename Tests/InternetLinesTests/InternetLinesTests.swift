@@ -154,6 +154,16 @@ func carriageReturnQueuing() async throws {
   )
 }
 
+/// Confirm that an empty source vends no lines.
+@Test("Ensure empty input gives empty output (instead of a single empty line)")
+func emptyInputAndOutput() async throws {
+  let emptySync = EmptyCollection<UInt8>()
+  let emptyAsync = AsyncStream<UInt8> { $0.finish() }
+  await #expect(emptySync.internetLines.collect().isEmpty)
+  await #expect(AnySequence(emptySync).internetLines.collect().isEmpty)
+  await #expect(emptyAsync.internetLines.collect().isEmpty)
+}
+
 // MARK: - Helpers
 
 extension AsyncSequence {
