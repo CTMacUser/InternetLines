@@ -14,9 +14,7 @@ import Testing
 @Test("Checking each kind of splitting sequence")
 func linesSplitting() async throws {
   let input = "Line1\nLine2\rLine3\r\nLine4\u{000B}Line5\u{000C}Line6".utf8
-  let collectionLines = await input.internetLines.reduce(into: []) {
-    $0.append($1)
-  }
+  let collectionLines = await input.internetLines.collect()
 
   #expect(collectionLines.count == 6)
 
@@ -40,9 +38,7 @@ func linesSplitting() async throws {
 
   // Sequence version
   let inputSequence = AnySequence(input)
-  let sequenceLines = await inputSequence.internetLines.reduce(into: []) {
-    $0.append($1)
-  }
+  let sequenceLines = await inputSequence.internetLines.collect()
 
   #expect(sequenceLines.count == 6)
 
@@ -60,9 +56,7 @@ func linesSplitting() async throws {
     }
     continuation.finish()
   }
-  let streamLines = await byteStream.internetLines.reduce(into: []) {
-    $0.append($1)
-  }
+  let streamLines = await byteStream.internetLines.collect()
 
   #expect(streamLines.count == 6)
 
@@ -117,9 +111,7 @@ func rawRepresentables() async throws {
 func lastTerminator(_ terminator: InternetLineTerminator) async throws {
   let rawTestLine = "This is a test."
   let testLine = rawTestLine + terminator.rawValue
-  let collectionLines = await testLine.utf8.internetLines.reduce(into: []) {
-    $0.append($1)
-  }
+  let collectionLines = await testLine.utf8.internetLines.collect()
   let firstCollectionLine = try #require(collectionLines.first)
   #expect(
     Array(testLine[firstCollectionLine.lineRange].utf8)
@@ -128,10 +120,7 @@ func lastTerminator(_ terminator: InternetLineTerminator) async throws {
   #expect(firstCollectionLine.cap == terminator)
   #expect(collectionLines.count == 1)
 
-  let sequenceLines = await AnySequence(testLine.utf8).internetLines.reduce(
-    into: []) {
-      $0.append($1)
-    }
+  let sequenceLines = await AnySequence(testLine.utf8).internetLines.collect()
   let firstSequenceLine = try #require(sequenceLines.first)
   #expect(firstSequenceLine.line == Array(rawTestLine.utf8))
   #expect(firstSequenceLine.cap == terminator)
@@ -145,7 +134,7 @@ func basicExample() async throws {
   let lines = await AnySequence(input.utf8)
     .internetLines
     .map { String(decoding: $0.line, as: UTF8.self) }
-    .reduce(into: []) { $0.append($1) }
+    .collect()
   #expect(lines == ["Line 1", "Line 2", "Line 3", "Line 4"])
 }
 
@@ -157,10 +146,27 @@ func carriageReturnQueuing() async throws {
   let lines = await AnySequence(input.utf8)
     .internetLines
     .map { String(decoding: $0.line, as: UTF8.self) }
-    .reduce(into: []) { $0.append($1) }
+    .collect()
   #expect(
     lines == [
       "Line 1", "Line 2", "", "Line 3", "", "Line 4", "", "Line 5", "Line 6",
     ]
   )
+}
+
+// MARK: - Helpers
+
+extension AsyncSequence {
+  /// Gather all the elements of this asynchronous sequence into a
+  /// new synchronous sequence of the given type.
+  fileprivate func collect<T: RangeReplaceableCollection<Element>>(
+    into type: T.Type
+  ) async rethrows -> T {
+    return try await reduce(into: T()) { $0.append($1) }
+  }
+
+  /// Gather all the elements of this asynchronous sequence into an array.
+  fileprivate func collect() async rethrows -> [Element] {
+    return try await self.collect(into: Array.self)
+  }
 }
