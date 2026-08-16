@@ -1,4 +1,4 @@
-/// A test suite for a stream that splits a collection into lines.
+/// Tests for sequences that split sequeces of bytes into lines.
 //
 // SPDX-FileCopyrightText: © 2026 Daryle Walker (@CTMacUser)
 // SPDX-License-Identifier: MIT
@@ -7,12 +7,15 @@ import Testing
 
 @testable import InternetLines
 
-/// Validates that various line-ending characters correctly split an
-/// input stream into lines,
-/// covering conversion from regular sequences, collections,
-/// and asynchronous sequences.
-@Test("Checking each kind of splitting sequence")
-func linesSplitting() async throws {
+/// Verifies that a collection of bytes is correctly split into lines.
+///
+/// This includes checking each line's content index range and their
+/// terminator value.
+/// Line terminations can be: a line feed, a vertical tab, a form-feed,
+/// a carriage return, a carriage return followed by a line feed,
+/// and nothing at all (which can at most apply at the end).
+@Test("Check collection line-splitting")
+func collectionLineSplitting() async throws {
   let input = "Line1\nLine2\rLine3\r\nLine4\u{000B}Line5\u{000C}Line6".utf8
   let collectionLines = await input.internetLines.collect()
 
@@ -35,8 +38,18 @@ func linesSplitting() async throws {
 
   #expect(collectionLines[5].cap == .nothing)
   #expect(input[collectionLines[5].lineRange].elementsEqual("Line6".utf8))
+}
 
-  // Sequence version
+/// Verifies that a synchronous sequence of bytes is correctly split into lines.
+///
+/// This includes checking the value of each line's content and
+/// the terminator used.
+/// Line terminations can be: a line feed, a vertical tab, a form-feed,
+/// a carriage return, a carriage return followed by a line feed,
+/// and nothing at all (which can at most apply at the end).
+@Test("Check line-splitting for synchronous sequences")
+func sequenceLineSplitting() async throws {
+  let input = "Line1\nLine2\rLine3\r\nLine4\u{000B}Line5\u{000C}Line6".utf8
   let inputSequence = AnySequence(input)
   let sequenceLines = await inputSequence.internetLines.collect()
 
@@ -48,8 +61,19 @@ func linesSplitting() async throws {
   #expect(sequenceLines[3] == (line: Array("Line4".utf8), cap: .lineTabulation))
   #expect(sequenceLines[4] == (line: Array("Line5".utf8), cap: .formFeed))
   #expect(sequenceLines[5] == (line: Array("Line6".utf8), cap: .nothing))
+}
 
-  // AsyncSequence version
+/// Verifies that an asynchronous sequence of bytes is correctly split into
+/// lines.
+///
+/// This includes checking the value of each line's content and
+/// the terminator used.
+/// Line terminations can be: a line feed, a vertical tab, a form-feed,
+/// a carriage return, a carriage return followed by a line feed,
+/// and nothing at all (which can at most apply at the end).
+@Test("Check asynchronous line-splitting")
+func asyncLineSplitting() async throws {
+  let input = "Line1\nLine2\rLine3\r\nLine4\u{000B}Line5\u{000C}Line6".utf8
   let byteStream = AsyncStream<UInt8> { continuation in
     for byte in input {
       continuation.yield(byte)
