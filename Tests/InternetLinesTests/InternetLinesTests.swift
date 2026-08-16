@@ -1,4 +1,4 @@
-/// Tests for sequences that split sequeces of bytes into lines.
+/// Tests for sequences that split sequences of bytes into lines.
 //
 // SPDX-FileCopyrightText: © 2026 Daryle Walker (@CTMacUser)
 // SPDX-License-Identifier: MIT
