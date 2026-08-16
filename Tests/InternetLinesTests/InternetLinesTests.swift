@@ -3,6 +3,7 @@
 // SPDX-FileCopyrightText: © 2026 Daryle Walker (@CTMacUser)
 // SPDX-License-Identifier: MIT
 
+import AsyncAlgorithms
 import Testing
 
 @testable import InternetLines
@@ -17,7 +18,7 @@ import Testing
 @Test("Check collection line-splitting")
 func collectionLineSplitting() async throws {
   let input = "Line1\nLine2\rLine3\r\nLine4\u{000B}Line5\u{000C}Line6".utf8
-  let collectionLines = await input.internetLines.collect()
+  let collectionLines = await Array(input.internetLines)
 
   #expect(collectionLines.count == 6)
 
@@ -51,7 +52,7 @@ func collectionLineSplitting() async throws {
 func sequenceLineSplitting() async throws {
   let input = "Line1\nLine2\rLine3\r\nLine4\u{000B}Line5\u{000C}Line6".utf8
   let inputSequence = AnySequence(input)
-  let sequenceLines = await inputSequence.internetLines.collect()
+  let sequenceLines = await Array(inputSequence.internetLines)
 
   #expect(sequenceLines.count == 6)
 
@@ -74,13 +75,8 @@ func sequenceLineSplitting() async throws {
 @Test("Check asynchronous line-splitting")
 func asyncLineSplitting() async throws {
   let input = "Line1\nLine2\rLine3\r\nLine4\u{000B}Line5\u{000C}Line6".utf8
-  let byteStream = AsyncStream<UInt8> { continuation in
-    for byte in input {
-      continuation.yield(byte)
-    }
-    continuation.finish()
-  }
-  let streamLines = await byteStream.internetLines.collect()
+    .async
+  let streamLines = await Array(input.internetLines)
 
   #expect(streamLines.count == 6)
 
@@ -135,7 +131,7 @@ func rawRepresentables() async throws {
 func lastTerminator(_ terminator: InternetLineTerminator) async throws {
   let rawTestLine = "This is a test."
   let testLine = rawTestLine + terminator.rawValue
-  let collectionLines = await testLine.utf8.internetLines.collect()
+  let collectionLines = await Array(testLine.utf8.internetLines)
   let firstCollectionLine = try #require(collectionLines.first)
   #expect(
     Array(testLine[firstCollectionLine.lineRange].utf8)
@@ -144,7 +140,7 @@ func lastTerminator(_ terminator: InternetLineTerminator) async throws {
   #expect(firstCollectionLine.cap == terminator)
   #expect(collectionLines.count == 1)
 
-  let sequenceLines = await AnySequence(testLine.utf8).internetLines.collect()
+  let sequenceLines = await Array(AnySequence(testLine.utf8).internetLines)
   let firstSequenceLine = try #require(sequenceLines.first)
   #expect(firstSequenceLine.line == Array(rawTestLine.utf8))
   #expect(firstSequenceLine.cap == terminator)
@@ -155,10 +151,11 @@ func lastTerminator(_ terminator: InternetLineTerminator) async throws {
 @Test("Example from the 'README.md' file")
 func basicExample() async throws {
   let input = "Line 1\r\nLine 2\nLine 3\rLine 4"
-  let lines = await AnySequence(input.utf8)
-    .internetLines
-    .map { String(decoding: $0.line, as: UTF8.self) }
-    .collect()
+  let lines = await Array(
+    AnySequence(input.utf8)
+      .internetLines
+      .map { String(decoding: $0.line, as: UTF8.self) }
+  )
   #expect(lines == ["Line 1", "Line 2", "Line 3", "Line 4"])
 }
 
@@ -167,10 +164,11 @@ func basicExample() async throws {
 func carriageReturnQueuing() async throws {
   let input =
     "Line 1\r\nLine 2\r\u{000B}Line 3\r\u{000C}Line 4\r\rLine 5\rLine 6\r"
-  let lines = await AnySequence(input.utf8)
-    .internetLines
-    .map { String(decoding: $0.line, as: UTF8.self) }
-    .collect()
+  let lines = await Array(
+    AnySequence(input.utf8)
+      .internetLines
+      .map { String(decoding: $0.line, as: UTF8.self) }
+  )
   #expect(
     lines == [
       "Line 1", "Line 2", "", "Line 3", "", "Line 4", "", "Line 5", "Line 6",
@@ -183,24 +181,7 @@ func carriageReturnQueuing() async throws {
 func emptyInputAndOutput() async throws {
   let emptySync = EmptyCollection<UInt8>()
   let emptyAsync = AsyncStream<UInt8> { $0.finish() }
-  await #expect(emptySync.internetLines.collect().isEmpty)
-  await #expect(AnySequence(emptySync).internetLines.collect().isEmpty)
-  await #expect(emptyAsync.internetLines.collect().isEmpty)
-}
-
-// MARK: - Helpers
-
-extension AsyncSequence {
-  /// Gather all the elements of this asynchronous sequence into a
-  /// new synchronous sequence of the given type.
-  fileprivate func collect<T: RangeReplaceableCollection<Element>>(
-    into type: T.Type
-  ) async rethrows -> T {
-    return try await reduce(into: T()) { $0.append($1) }
-  }
-
-  /// Gather all the elements of this asynchronous sequence into an array.
-  fileprivate func collect() async rethrows -> [Element] {
-    return try await self.collect(into: Array.self)
-  }
+  await #expect(Array(emptySync.internetLines).isEmpty)
+  await #expect(Array(AnySequence(emptySync).internetLines).isEmpty)
+  await #expect(Array(emptyAsync.internetLines).isEmpty)
 }

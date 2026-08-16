@@ -18,6 +18,12 @@ let package = Package(
       targets: ["InternetLines"]
     )
   ],
+  dependencies: [
+    .package(
+      url: "https://github.com/apple/swift-async-algorithms.git",
+      .upToNextMajor(from: "1.1.5")
+    ),
+  ],
   targets: [
     // Targets are the basic building blocks of a package,
     // defining a module or a test suite.
@@ -28,7 +34,10 @@ let package = Package(
     ),
     .testTarget(
       name: "InternetLinesTests",
-      dependencies: ["InternetLines"]
+      dependencies: [
+        "InternetLines",
+        .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+      ]
     ),
   ],
   swiftLanguageModes: [.v6]
