@@ -30,6 +30,21 @@ extension InternetLineTerminator: Comparable, Hashable {}
 
 extension InternetLineTerminator: Decodable, Encodable {}
 
+// MARK: - Parsing State
+
+/// Retained data after reading a CR, to be vended in the next loop.
+enum LineParsingReserve<Elements: Collection> {
+  /// A single byte is stored for the next loop.
+  ///
+  /// This happens when the next byte after a CR is not LF.
+  case byte(value: Elements.Element)
+  /// Multiple bytes are stored for the next loop.
+  ///
+  /// This happens after a carriage-return (CR) is read in.
+  /// The line needs to be stored until the next byte is known (LF vs not).
+  case line(line: Elements)
+}
+
 // MARK: - Featured properties
 
 extension Sequence where Element == UInt8 {
@@ -141,6 +156,16 @@ extension Collection where Element == UInt8, Index: Sendable {
       }
       continuation.finish()
     }
+  }
+}
+
+extension AsyncSequence where Element == UInt8 {
+  /// Provides a sequence that parses out each line within this sequence.
+  ///
+  /// A line is expressed as its bytes before the terminator,
+  /// then what the line's terminating byte sequence is.
+  public var internetLines: AsyncInternetLineSequence<Self, [UInt8]> {
+    .init(self)
   }
 }
 

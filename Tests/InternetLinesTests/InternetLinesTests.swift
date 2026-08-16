@@ -76,7 +76,7 @@ func sequenceLineSplitting() async throws {
 func asyncLineSplitting() async throws {
   let input = "Line1\nLine2\rLine3\r\nLine4\u{000B}Line5\u{000C}Line6".utf8
     .async
-  let streamLines = await Array(input.internetLines)
+  let streamLines = try await Array(input.internetLines)
 
   #expect(streamLines.count == 6)
 
@@ -180,8 +180,8 @@ func carriageReturnQueuing() async throws {
 @Test("Ensure empty input gives empty output (instead of a single empty line)")
 func emptyInputAndOutput() async throws {
   let emptySync = EmptyCollection<UInt8>()
-  let emptyAsync = AsyncStream<UInt8> { $0.finish() }
+  let emptyAsync = emptySync.async
   await #expect(Array(emptySync.internetLines).isEmpty)
   await #expect(Array(AnySequence(emptySync).internetLines).isEmpty)
-  await #expect(Array(emptyAsync.internetLines).isEmpty)
+  try await #expect(Array(emptyAsync.internetLines).isEmpty)
 }
