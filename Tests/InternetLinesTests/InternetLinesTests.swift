@@ -162,6 +162,10 @@ func basicExample() async throws {
 /// A demostration with carriage returns.
 @Test("Hold back carriage-return productions until the next line break")
 func carriageReturnQueuing() async throws {
+  // Represents: combining with LF for a CRLF line;
+  // not combining with VT, FF, and another CR for a separate, blank line;
+  // not combining with a regular byte to start a separate line;
+  // and a CR ending the data, which shouldn't be followed by an empty line.
   let input =
     "Line 1\r\nLine 2\r\u{000B}Line 3\r\u{000C}Line 4\r\rLine 5\rLine 6\r"
   let lines = await Array(

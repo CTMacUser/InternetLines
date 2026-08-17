@@ -23,10 +23,19 @@ public struct AsyncInternetLineSequence<
   Segment: RangeReplaceableCollection<UInt8>
 >: AsyncSequence where Base.Element == UInt8 {
   public struct AsyncIterator: AsyncIteratorProtocol {
+    /// The wrapped iterator.
     var base: Base.AsyncIterator
+    /// Flag when the source iterator is exhausted.
     var hasFinished = false
+    /// Saves any excess data to the next loop call.
+    ///
+    /// Happens when a CR is read,
+    /// since it won't be until the following loop if a CRLF line or
+    /// a CR line will be produced.
+    /// Any remainder will be produced in the next loop.
     var reserve: LineParsingReserve<Segment>?
 
+    /// Creates a line-parsing iterator wrapping the given iterator of bytes.
     init(_ base: Base.AsyncIterator) {
       self.base = base
     }
@@ -93,8 +102,11 @@ public struct AsyncInternetLineSequence<
     }
   }
 
+  /// The wrapped sequence.
   let base: Base
 
+  /// Creates a line-parsing sequence wrapping the given sequence of bytes,
+  /// copying line data into instances of the given collection type.
   init(_ base: Base, vending type: Segment.Type = Segment.self) {
     self.base = base
   }

@@ -48,9 +48,9 @@ enum LineParsingReserve<Elements: Collection> {
 // MARK: - Featured properties
 
 extension Sequence where Element == UInt8 {
-  /// Provides a stream that parses out each line within this sequence.
+  /// Provides a sequence that parses out each line within this sequence.
   ///
-  /// The line is expressed as its bytes before the terminator,
+  /// A line is expressed as its bytes before the terminator,
   /// then what the line's terminating byte sequence is.
   public var internetLines:
     AsyncStream<(line: [UInt8], cap: InternetLineTerminator)>
@@ -160,7 +160,8 @@ extension Collection where Element == UInt8, Index: Sendable {
 }
 
 extension AsyncSequence where Element == UInt8 {
-  /// Provides a sequence that parses out each line within this sequence.
+  /// Provides an asynchronous sequence that parses out each line within this
+  /// sequence.
   ///
   /// A line is expressed as its bytes before the terminator,
   /// then what the line's terminating byte sequence is.
