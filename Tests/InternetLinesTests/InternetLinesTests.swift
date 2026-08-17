@@ -18,7 +18,7 @@ import Testing
 @Test("Check collection line-splitting")
 func collectionLineSplitting() async throws {
   let input = "Line1\nLine2\rLine3\r\nLine4\u{000B}Line5\u{000C}Line6".utf8
-  let collectionLines = await Array(input.internetLines)
+  let collectionLines = Array(input.internetLines)
 
   #expect(collectionLines.count == 6)
 
@@ -129,9 +129,9 @@ func rawRepresentables() async throws {
   arguments: InternetLineTerminator.allCases
 )
 func lastTerminator(_ terminator: InternetLineTerminator) async throws {
-  let rawTestLine = "This is a test."
+  let rawTestLine = "This is a test."  // Must be all ASCII.
   let testLine = rawTestLine + terminator.rawValue
-  let collectionLines = await Array(testLine.utf8.internetLines)
+  let collectionLines = Array(testLine.utf8.internetLines)
   let firstCollectionLine = try #require(collectionLines.first)
   #expect(
     Array(testLine[firstCollectionLine.lineRange].utf8)
@@ -185,7 +185,7 @@ func carriageReturnQueuing() async throws {
 func emptyInputAndOutput() async throws {
   let emptySync = EmptyCollection<UInt8>()
   let emptyAsync = emptySync.async
-  await #expect(Array(emptySync.internetLines).isEmpty)
+  #expect(Array(emptySync.internetLines).isEmpty)
   #expect(Array(AnySequence(emptySync).internetLines).isEmpty)
   try await #expect(Array(emptyAsync.internetLines).isEmpty)
 }

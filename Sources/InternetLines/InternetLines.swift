@@ -57,61 +57,77 @@ extension Sequence where Element == UInt8 {
   }
 }
 
-extension Collection where Element == UInt8, Index: Sendable {
-  /// Provides a stream that parses out each line within this sequence.
+extension Collection where Element == UInt8 {
+  /// Provides a sequence that reveals each line's location within this
+  /// collection, synchronously.
   ///
   /// The line is expressed as the range of its bytes before the terminator,
   /// then what the line's terminating byte sequence is.
   public var internetLines:
-    AsyncStream<(lineRange: Range<Index>, cap: InternetLineTerminator)>
+    AnySequence<(lineRange: Range<Index>, cap: InternetLineTerminator)>
   {
-    AsyncStream { continuation in
+    return AnySequence {
       var parser = SplitFinder()
       var start = self.startIndex
       var lastCrIndex: Index?
-      for i in self.indices {
-        guard !Task.isCancelled else { break }
+      var indexIterator = self.indices.makeIterator()
+      var finishedStream = false
 
-        let processingAction = parser(processing: self[i])
-        if processingAction.doCrBreak {
-          let yield = continuation.yield(
-            (start..<lastCrIndex!, .carriageReturn)
-          )
-          assert(self.distance(from: lastCrIndex!, to: i) == 1)
-          start = i
-          lastCrIndex = nil
-          if case .terminated = yield {
-            break
-          }
-        }
-        if let cap = processingAction.primaryBreak {
-          let capStart = lastCrIndex ?? i
-          let yield = continuation.yield((start..<capStart, cap))
-          assert(0...1 ~= self.distance(from: capStart, to: i))
-          start = self.index(after: i)
-          lastCrIndex = nil
-          if case .terminated = yield {
-            break
-          }
-        }
-        if let retainedByte = processingAction.retention {
-          switch retainedByte {
-          case .cr:
-            lastCrIndex = i
-          case .normal:
-            break
-          }
-        }
-      }
+      return AnyIterator<
+        (lineRange: Range<Index>, cap: InternetLineTerminator)
+      > {
+        // 1. Check if the main loop was already completed
+        if finishedStream { return nil }
 
-      if let lastCrIndex {
-        continuation.yield((start..<lastCrIndex, .carriageReturn))
-        start = self.index(after: lastCrIndex)
+        // 2. Process the collection indices sequentially
+        while let i = indexIterator.next() {
+          let processingAction = parser(processing: self[i])
+
+          if processingAction.doCrBreak {
+            let lineStart = start
+            let crIndex = lastCrIndex!
+            assert(self.distance(from: crIndex, to: i) == 1)
+            start = i
+            lastCrIndex = nil
+            return (lineStart..<crIndex, .carriageReturn)
+          }
+
+          if let cap = processingAction.primaryBreak {
+            let capStart = lastCrIndex ?? i
+            let lineStart = start
+            assert(0...1 ~= self.distance(from: capStart, to: i))
+            start = self.index(after: i)
+            lastCrIndex = nil
+            return (lineStart..<capStart, cap)
+          }
+
+          if let retainedByte = processingAction.retention {
+            switch retainedByte {
+            case .cr:
+              lastCrIndex = i
+            case .normal:
+              break
+            }
+          }
+        }
+
+        // 3. Finalize any remaining trailing data after loop completion
+        finishedStream = true
+
+        if let crIndex = lastCrIndex {
+          let lineStart = start
+          start = self.index(after: crIndex)
+          return (lineStart..<crIndex, .carriageReturn)
+        }
+
+        if start < self.endIndex {
+          let lineStart = start
+          start = self.endIndex
+          return (lineStart..<self.endIndex, .nothing)
+        }
+
+        return nil
       }
-      if start < self.endIndex {
-        continuation.yield((start..<self.endIndex, .nothing))
-      }
-      continuation.finish()
     }
   }
 }
