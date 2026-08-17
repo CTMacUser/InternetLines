@@ -52,7 +52,7 @@ func collectionLineSplitting() async throws {
 func sequenceLineSplitting() async throws {
   let input = "Line1\nLine2\rLine3\r\nLine4\u{000B}Line5\u{000C}Line6".utf8
   let inputSequence = AnySequence(input)
-  let sequenceLines = await Array(inputSequence.internetLines)
+  let sequenceLines = Array(inputSequence.internetLines)
 
   #expect(sequenceLines.count == 6)
 
@@ -140,7 +140,7 @@ func lastTerminator(_ terminator: InternetLineTerminator) async throws {
   #expect(firstCollectionLine.cap == terminator)
   #expect(collectionLines.count == 1)
 
-  let sequenceLines = await Array(AnySequence(testLine.utf8).internetLines)
+  let sequenceLines = Array(AnySequence(testLine.utf8).internetLines)
   let firstSequenceLine = try #require(sequenceLines.first)
   #expect(firstSequenceLine.line == Array(rawTestLine.utf8))
   #expect(firstSequenceLine.cap == terminator)
@@ -151,7 +151,7 @@ func lastTerminator(_ terminator: InternetLineTerminator) async throws {
 @Test("Example from the 'README.md' file")
 func basicExample() async throws {
   let input = "Line 1\r\nLine 2\nLine 3\rLine 4"
-  let lines = await Array(
+  let lines = Array(
     AnySequence(input.utf8)
       .internetLines
       .map { String(decoding: $0.line, as: UTF8.self) }
@@ -168,7 +168,7 @@ func carriageReturnQueuing() async throws {
   // and a CR ending the data, which shouldn't be followed by an empty line.
   let input =
     "Line 1\r\nLine 2\r\u{000B}Line 3\r\u{000C}Line 4\r\rLine 5\rLine 6\r"
-  let lines = await Array(
+  let lines = Array(
     AnySequence(input.utf8)
       .internetLines
       .map { String(decoding: $0.line, as: UTF8.self) }
@@ -186,6 +186,6 @@ func emptyInputAndOutput() async throws {
   let emptySync = EmptyCollection<UInt8>()
   let emptyAsync = emptySync.async
   await #expect(Array(emptySync.internetLines).isEmpty)
-  await #expect(Array(AnySequence(emptySync).internetLines).isEmpty)
+  #expect(Array(AnySequence(emptySync).internetLines).isEmpty)
   try await #expect(Array(emptyAsync.internetLines).isEmpty)
 }

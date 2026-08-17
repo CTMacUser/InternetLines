@@ -52,51 +52,8 @@ extension Sequence where Element == UInt8 {
   ///
   /// A line is expressed as its bytes before the terminator,
   /// then what the line's terminating byte sequence is.
-  public var internetLines:
-    AsyncStream<(line: [UInt8], cap: InternetLineTerminator)>
-  {
-    AsyncStream { continuation in
-      var parser = SplitFinder()
-      var lineBuffer = [UInt8]()
-      lineBuffer.reserveCapacity(Swift.min(self.underestimatedCount, 998))
-      for byte in self {
-        guard !Task.isCancelled else { break }
-
-        let processingAction = parser(processing: byte)
-        if processingAction.doCrBreak {
-          let yield = continuation.yield((lineBuffer, .carriageReturn))
-          lineBuffer.removeAll(keepingCapacity: true)
-          if case .terminated = yield {
-            break
-          }
-        }
-        if let cap = processingAction.primaryBreak {
-          let yield = continuation.yield((lineBuffer, cap))
-          lineBuffer.removeAll(keepingCapacity: true)
-          if case .terminated = yield {
-            break
-          }
-        }
-        if let retainedByte = processingAction.retention {
-          switch retainedByte {
-          case .cr:
-            break
-          case .normal:
-            lineBuffer.append(byte)
-          }
-        }
-      }
-
-      if parser.previousWasCR {
-        continuation.yield((lineBuffer, .carriageReturn))
-        lineBuffer.removeAll()
-      }
-      if !lineBuffer.isEmpty {
-        continuation.yield((lineBuffer, .nothing))
-        lineBuffer.removeAll()
-      }
-      continuation.finish()
-    }
+  public var internetLines: InternetLineSequence<Self, [Element]> {
+    .init(self)
   }
 }
 
