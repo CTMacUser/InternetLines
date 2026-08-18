@@ -45,6 +45,83 @@ enum LineParsingReserve<Elements: Collection> {
   case line(line: Elements)
 }
 
+// MARK: - Line locator
+
+/// The boundaries of a line within a collection of bytes,
+/// using common Internet protocols to determine the line-breaking sequences,
+/// and a cache of the line terminator found.
+///
+/// Instances are the elements of a `InternetLineRangeSequence`,
+/// which itself is generated from a collection's `internetLineRanges` property.
+///
+/// For a given location value *l*:
+/// - `l.contentRange.upperBound == l.terminatorRange.lowerBound`.
+/// - At most one of `l.contentRange` or `l.terminatorRange` is empty.
+/// And with a valid collection client *c*:
+/// - `c[l.terminatorRange].count == l.terminator.count`.
+///
+/// - Parameter Index: The `Index` type of the client collection type.
+///
+/// `InternetLineLocation` specifies where a line starts and ends in its parent collection,
+/// as well as the point of partition between the line's content and its line-ending terminator.
+///
+/// For any parsed line, the following index relationship holds: `lineStart <= partition <= lineEnd`.
+public struct InternetLineLocation<Index: Comparable>: Equatable {
+  /// The starting index of the line's content in the collection.
+  let lineStart: Index
+  /// The index that separates the line's content from its line terminator.
+  let partition: Index
+  /// The past-the-end index of the line's terminator.
+  let lineEnd: Index
+
+  /// The line terminator used to end this line.
+  public let terminator: InternetLineTerminator
+
+  /// Creates a locator for a parsed line,
+  /// with its indices within its collection and the terminator value.
+  ///
+  /// - Precondition: The distance between `mid` and `end` has to
+  ///   be consistent with `terminator.count`,
+  ///   and `start ≤ mid ≤ end`.
+  ///
+  /// - Parameters:
+  ///   - start: The index of the first element of the line's content.
+  ///   - mid: The index of the first element of the line's terminator.
+  ///     This is also the past-the-end point of the line's content.
+  ///   - end: The past-the-end point of the line's terminator.
+  ///   - terminator: The terminator's logical value used to end the line.
+  init(
+    startingAt start: Index,
+    partitionedAt mid: Index,
+    endingPast end: Index,
+    cappedWith terminator: InternetLineTerminator
+  ) {
+    // There's no test for mid/end vs terminator.count because checking that
+    // depends on the logic in the corresponding collection instance.
+    precondition(start <= mid)
+    precondition(mid <= end)
+
+    self.lineStart = start
+    self.partition = mid
+    self.lineEnd = end
+    self.terminator = terminator
+  }
+
+  /// The index range covering the content of the line,
+  /// excluding the terminator.
+  public var contentRange: Range<Index> { self.lineStart..<self.partition }
+  /// The index range covering the line's terminator.
+  public var terminatorRange: Range<Index> { self.partition..<self.lineEnd }
+  /// The index range covering the entire line,
+  /// including both its content and its terminator.
+  public var lineRange: Range<Index> { self.lineStart..<self.lineEnd }
+}
+
+extension InternetLineLocation: Sendable where Index: Sendable {}
+extension InternetLineLocation: Hashable where Index: Hashable {}
+extension InternetLineLocation: Decodable where Index: Decodable {}
+extension InternetLineLocation: Encodable where Index: Encodable {}
+
 // MARK: - Featured properties
 
 extension Sequence where Element == UInt8 {

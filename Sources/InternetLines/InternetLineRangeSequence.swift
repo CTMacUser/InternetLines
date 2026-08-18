@@ -31,9 +31,10 @@
 /// import Foundation
 ///
 /// let data = Data("Hello\r\nWorld\n\rNoTerminator".utf8)
-/// for (lineNumber, (range, cap)) in data.internetLineRanges.enumerated()
-/// where !range.isEmpty {
-///   let line = String(data: data[range], encoding: .macOSRoman)
+/// for (lineNumber, location) in data.internetLineRanges.enumerated()
+/// where !location.contentRange.isEmpty {
+///   let line = String(data: data[location.contentRange],
+///     encoding: .macOSRoman)
 ///   print("\(lineNumber): \(String(reflecting: line!)) [terminator: \(cap)]")
 /// }
 /// /*
@@ -77,9 +78,7 @@ public struct InternetLineRangeSequence<Base: Collection<UInt8>>:
       self.searchStart = base.startIndex
     }
 
-    public mutating func next() -> (
-      lineRange: Range<Base.Index>, cap: InternetLineTerminator
-    )? {
+    public mutating func next() -> InternetLineLocation<Base.Index>? {
       guard !hasFinished else { return nil }
       guard
         let terminatorStart = self.base[searchStart...].firstIndex(where: {
@@ -88,7 +87,12 @@ public struct InternetLineRangeSequence<Base: Collection<UInt8>>:
       else {
         hasFinished = true
         if searchStart < self.base.endIndex {
-          return (searchStart..<self.base.endIndex, .nothing)
+          return .init(
+            startingAt: searchStart,
+            partitionedAt: self.base.endIndex,
+            endingPast: self.base.endIndex,
+            cappedWith: .nothing
+          )
         } else {
           return nil
         }
@@ -118,7 +122,12 @@ public struct InternetLineRangeSequence<Base: Collection<UInt8>>:
       }
       defer { searchStart = nextStart }
 
-      return (searchStart..<terminatorStart, terminator)
+      return .init(
+        startingAt: searchStart,
+        partitionedAt: terminatorStart,
+        endingPast: nextStart,
+        cappedWith: terminator
+      )
     }
   }
 

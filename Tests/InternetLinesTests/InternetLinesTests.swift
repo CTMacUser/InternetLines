@@ -22,23 +22,23 @@ func collectionLineSplitting() async throws {
 
   #expect(collectionLines.count == 6)
 
-  #expect(collectionLines[0].cap == .lineFeed)
-  #expect(input[collectionLines[0].lineRange].elementsEqual("Line1".utf8))
+  #expect(collectionLines[0].terminator == .lineFeed)
+  #expect(input[collectionLines[0].contentRange].elementsEqual("Line1".utf8))
 
-  #expect(collectionLines[1].cap == .carriageReturn)
-  #expect(input[collectionLines[1].lineRange].elementsEqual("Line2".utf8))
+  #expect(collectionLines[1].terminator == .carriageReturn)
+  #expect(input[collectionLines[1].contentRange].elementsEqual("Line2".utf8))
 
-  #expect(collectionLines[2].cap == .crlf)
-  #expect(input[collectionLines[2].lineRange].elementsEqual("Line3".utf8))
+  #expect(collectionLines[2].terminator == .crlf)
+  #expect(input[collectionLines[2].contentRange].elementsEqual("Line3".utf8))
 
-  #expect(collectionLines[3].cap == .lineTabulation)
-  #expect(input[collectionLines[3].lineRange].elementsEqual("Line4".utf8))
+  #expect(collectionLines[3].terminator == .lineTabulation)
+  #expect(input[collectionLines[3].contentRange].elementsEqual("Line4".utf8))
 
-  #expect(collectionLines[4].cap == .formFeed)
-  #expect(input[collectionLines[4].lineRange].elementsEqual("Line5".utf8))
+  #expect(collectionLines[4].terminator == .formFeed)
+  #expect(input[collectionLines[4].contentRange].elementsEqual("Line5".utf8))
 
-  #expect(collectionLines[5].cap == .nothing)
-  #expect(input[collectionLines[5].lineRange].elementsEqual("Line6".utf8))
+  #expect(collectionLines[5].terminator == .nothing)
+  #expect(input[collectionLines[5].contentRange].elementsEqual("Line6".utf8))
 }
 
 /// Verifies that a synchronous sequence of bytes is correctly split into lines.
@@ -134,10 +134,10 @@ func lastTerminator(_ terminator: InternetLineTerminator) async throws {
   let collectionLines = Array(testLine.utf8.internetLineRanges)
   let firstCollectionLine = try #require(collectionLines.first)
   #expect(
-    Array(testLine[firstCollectionLine.lineRange].utf8)
+    Array(testLine[firstCollectionLine.contentRange].utf8)
       == Array(rawTestLine.utf8)
   )
-  #expect(firstCollectionLine.cap == terminator)
+  #expect(firstCollectionLine.terminator == terminator)
   #expect(collectionLines.count == 1)
 
   let sequenceLines = Array(AnySequence(testLine.utf8).internetLines)
