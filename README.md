@@ -21,7 +21,14 @@ let lines = Array(
 Add the following to your `Package.swift` dependencies:
 
 ```swift
-.package(url: "https://github.com/CTMacUser/InternetLines.git", from: "0.2.0")
+.package(url: "https://github.com/CTMacUser/InternetLines.git", from: "0.3.0")
+```
+
+And the following to the dependency list of the specific targets that
+will use this package:
+
+```swift
+.product(name: "InternetLines", package: "InternetLines")
 ```
 
 [^old]: This is my second project with this name.
