@@ -63,54 +63,8 @@ extension Collection where Element == UInt8 {
   ///
   /// The line is expressed as the range of its bytes before the terminator,
   /// then what the line's terminating byte sequence is.
-  public var internetLines:
-    AnySequence<(lineRange: Range<Index>, cap: InternetLineTerminator)>
-  {
-    return AnySequence {
-      var latest = self.startIndex
-      var hasFinished = false
-
-      return AnyIterator<(lineRange: Range<Index>, cap: InternetLineTerminator)>
-      {
-        guard !hasFinished else { return nil }
-        guard
-          let terminatorStart = self[latest...].firstIndex(where: {
-            0x0A...0x0D ~= $0
-          })
-        else {
-          hasFinished = true
-          if latest < self.endIndex {
-            return (latest..<self.endIndex, .nothing)
-          } else {
-            return nil
-          }
-        }
-
-        let afterTerminator = self.index(after: terminatorStart)
-        let terminator: InternetLineTerminator
-        var nextStart = afterTerminator
-        switch self[terminatorStart] {
-        case 0x0A:
-          terminator = .lineFeed
-        case 0x0B:
-          terminator = .lineTabulation
-        case 0x0C:
-          terminator = .formFeed
-        case 0x0D:
-          if afterTerminator < self.endIndex, self[afterTerminator] == 0x0A {
-            terminator = .crlf
-            self.formIndex(after: &nextStart)
-          } else {
-            terminator = .carriageReturn
-          }
-        default:
-          preconditionFailure("This should not be reachable")
-        }
-        defer { latest = nextStart }
-
-        return (latest..<terminatorStart, terminator)
-      }
-    }
+  public var internetLines: InternetLineRangeSequence<Self> {
+    .init(of: self)
   }
 }
 
