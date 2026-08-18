@@ -21,7 +21,7 @@ let lines = Array(
 Add the following to your `Package.swift` dependencies:
 
 ```swift
-.package(url: "https://github.com/CTMacUser/InternetLines.git", from: "0.1.0")
+.package(url: "https://github.com/CTMacUser/InternetLines.git", from: "0.2.0")
 ```
 
 [^old]: This is my second project with this name.
