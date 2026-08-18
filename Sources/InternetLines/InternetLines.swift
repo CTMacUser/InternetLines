@@ -122,6 +122,16 @@ extension InternetLineLocation: Hashable where Index: Hashable {}
 extension InternetLineLocation: Decodable where Index: Decodable {}
 extension InternetLineLocation: Encodable where Index: Encodable {}
 
+extension InternetLineLocation: CustomDebugStringConvertible {
+  public var debugDescription: String {
+    """
+    \(String(describing: Self.self))\
+    (\(self.lineStart)..<\(self.partition)..<\(self.lineEnd); \
+    \(self.terminator))
+    """
+  }
+}
+
 // MARK: - Featured properties
 
 extension Sequence where Element == UInt8 {
