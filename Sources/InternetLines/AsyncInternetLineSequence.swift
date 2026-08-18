@@ -4,20 +4,52 @@
 // SPDX-License-Identifier: MIT
 
 /// An asynchronous sequence that parses an underlying sequence of bytes into
-/// lines.
+/// lines,
+/// with line breaking determined with byte values commonly found in
+/// Internet protocol standards.
 ///
-/// This sequence wraps a base `AsyncSequence` of bytes, transforming it into
-/// a sequence of lines terminated by internet-standard sequences
-/// (e.g., CRLF, CR, or LF).
+/// Instances are obtained by using the extension `internetLines` computed
+/// property of the targeted sequence.
 ///
-/// - Parameters:
-///   - Base: The underlying `AsyncSequence` that produces the bytes to
-///     be parsed.
-///   - Segment: The `RangeReplaceableCollection` type used to buffer the
-///     bytes of each line.
+/// Each produced element is a tuple containing:
+/// - `line`: the content
+/// - `cap`: the detected line terminator as `InternetLineTerminator`
 ///
-/// The resulting sequence yields lines as tuples of
-/// `(Segment, InternetLineTerminator)`.
+/// Recognized terminators are the line feed (`0x0A`),
+/// vertical tab (`0x0B`),
+/// form feed (`0x0C`),
+/// carriage return (`0x0D`),
+/// and the two-byte sequence of a carriage return followed by a line feed.
+/// If the sequence ends without a terminator,
+/// the `.nothing` placeholder is used.
+///
+/// For instance, this will print each non-empty line:
+///
+/// ```swift
+/// import Foundation
+///
+/// let stream = AsyncStream { continuation in
+///   let data = Data("Hello\r\nWorld\n\rNoTerminator".utf8)
+///   for byte in data {
+///     continuation.yield(byte)
+///   }
+///   continuation.finish()
+/// }
+/// for try await (lineContents, cap) in stream.internetLines
+/// where !lineContents.isEmpty {
+///   let line = String(bytes: lineContents, encoding: .macOSRoman)
+///   print("\(String(reflecting: line!)) [terminator: \(cap)]")
+/// }
+/// /*
+///  Prints:
+///     "Hello" [terminator: crlf]
+///     "World" [terminator: lineFeed]
+///     "NoTerminator" [terminator: nothing]
+///  */
+/// ```
+///
+/// - Parameter Base: The underlying collection of bytes to be parsed.
+/// - Parameter Segment: The collection type used to store a line's content.
 public struct AsyncInternetLineSequence<
   Base: AsyncSequence,
   Segment: RangeReplaceableCollection<UInt8>

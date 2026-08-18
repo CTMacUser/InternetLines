@@ -3,21 +3,46 @@
 // SPDX-FileCopyrightText: © 2026 Daryle Walker (@CTMacUser)
 // SPDX-License-Identifier: MIT
 
-/// A synchronous sequence that parses an underlying sequence of bytes into
-/// lines.
+/// A sequence that parses an underlying sequence of bytes into lines,
+/// with line breaking determined with byte values commonly found in
+/// Internet protocol standards.
 ///
-/// This sequence wraps a base `Sequence` of bytes, transforming it into
-/// a sequence of lines terminated by internet-standard sequences
-/// (e.g., CRLF, CR, or LF).
+/// Instances are obtained by using the extension `internetLines` computed
+/// property of the targeted sequence.
 ///
-/// - Parameters:
-///   - Base: The underlying `Sequence` that produces the bytes to
-///     be parsed.
-///   - Segment: The `RangeReplaceableCollection` type used to buffer the
-///     bytes of each line.
+/// Each produced element is a tuple containing:
+/// - `line`: the content
+/// - `cap`: the detected line terminator as `InternetLineTerminator`
 ///
-/// The resulting sequence yields lines as tuples of
-/// `(Segment, InternetLineTerminator)`.
+/// Recognized terminators are the line feed (`0x0A`),
+/// vertical tab (`0x0B`),
+/// form feed (`0x0C`),
+/// carriage return (`0x0D`),
+/// and the two-byte sequence of a carriage return followed by a line feed.
+/// If the sequence ends without a terminator,
+/// the `.nothing` placeholder is used.
+///
+/// For instance, this will print each non-empty line, with line numbers:
+///
+/// ```swift
+/// import Foundation
+///
+/// let data = Data("Hello\r\nWorld\n\rNoTerminator".utf8)
+/// for (lineNumber, (lineContents, cap)) in data.internetLines.enumerated()
+/// where !lineContents.isEmpty {
+///   let line = String(bytes: lineContents, encoding: .macOSRoman)
+///   print("\(lineNumber): \(String(reflecting: line!)) [terminator: \(cap)]")
+/// }
+/// /*
+///  Prints:
+///     0: "Hello" [terminator: crlf]
+///     1: "World" [terminator: lineFeed]
+///     3: "NoTerminator" [terminator: nothing]
+///  */
+/// ```
+///
+/// - Parameter Base: The underlying collection of bytes to be parsed.
+/// - Parameter Segment: The collection type used to store a line's content.
 public struct InternetLineSequence<
   Base: Sequence<UInt8>,
   Segment: RangeReplaceableCollection<UInt8>
