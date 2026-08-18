@@ -8,7 +8,7 @@
 /// The ASCII character sequence used to terminate a line,
 /// following common internet protocols.
 public enum InternetLineTerminator: Sendable {
-  /// No terminator (end of file).
+  /// No terminator (end of stream).
   case nothing
   /// Line Feed (LF), `0x0A`.
   case lineFeed
@@ -20,7 +20,7 @@ public enum InternetLineTerminator: Sendable {
   case formFeed
   /// Carriage Return (CR), `0x0D`.
   case carriageReturn
-  /// Carriage Return and Line Feed (CRLF), `0x0D` then `0x0A`.
+  /// Carriage Return followed by Line Feed (CRLF), `0x0D` → `0x0A`.
   case crlf
 }
 
