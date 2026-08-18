@@ -63,7 +63,7 @@ extension Collection where Element == UInt8 {
   ///
   /// The line is expressed as the range of its bytes before the terminator,
   /// then what the line's terminating byte sequence is.
-  public var internetLines: InternetLineRangeSequence<Self> {
+  public var internetLineRanges: InternetLineRangeSequence<Self> {
     .init(of: self)
   }
 }

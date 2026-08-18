@@ -9,7 +9,7 @@
 /// with line breaking determined with byte values commonly found in
 /// Internet protocol standards.
 ///
-/// Instances are obtained by using the extension `internetLines` computed
+/// Instances are obtained by using the extension `internetLineRanges` computed
 /// property of the targeted collection.
 ///
 /// Each produced element is a tuple containing:
@@ -28,8 +28,10 @@
 /// For instance, this will print each non-empty line, with line numbers:
 ///
 /// ```swift
+/// import Foundation
+///
 /// let data = Data("Hello\r\nWorld\n\rNoTerminator".utf8)
-/// for (lineNumber, (range, cap)) in data.internetLines.enumerated()
+/// for (lineNumber, (range, cap)) in data.internetLineRanges.enumerated()
 /// where !range.isEmpty {
 ///   let line = String(data: data[range], encoding: .macOSRoman)
 ///   print("\(lineNumber): \(String(reflecting: line!)) [terminator: \(cap)]")
