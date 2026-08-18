@@ -67,66 +67,48 @@ extension Collection where Element == UInt8 {
     AnySequence<(lineRange: Range<Index>, cap: InternetLineTerminator)>
   {
     return AnySequence {
-      var parser = SplitFinder()
-      var start = self.startIndex
-      var lastCrIndex: Index?
-      var indexIterator = self.indices.makeIterator()
-      var finishedStream = false
+      var latest = self.startIndex
+      var hasFinished = false
 
-      return AnyIterator<
-        (lineRange: Range<Index>, cap: InternetLineTerminator)
-      > {
-        // 1. Check if the main loop was already completed
-        if finishedStream { return nil }
-
-        // 2. Process the collection indices sequentially
-        while let i = indexIterator.next() {
-          let processingAction = parser(processing: self[i])
-
-          if processingAction.doCrBreak {
-            let lineStart = start
-            let crIndex = lastCrIndex!
-            assert(self.distance(from: crIndex, to: i) == 1)
-            start = i
-            lastCrIndex = nil
-            return (lineStart..<crIndex, .carriageReturn)
-          }
-
-          if let cap = processingAction.primaryBreak {
-            let capStart = lastCrIndex ?? i
-            let lineStart = start
-            assert(0...1 ~= self.distance(from: capStart, to: i))
-            start = self.index(after: i)
-            lastCrIndex = nil
-            return (lineStart..<capStart, cap)
-          }
-
-          if let retainedByte = processingAction.retention {
-            switch retainedByte {
-            case .cr:
-              lastCrIndex = i
-            case .normal:
-              break
-            }
+      return AnyIterator<(lineRange: Range<Index>, cap: InternetLineTerminator)>
+      {
+        guard !hasFinished else { return nil }
+        guard
+          let terminatorStart = self[latest...].firstIndex(where: {
+            0x0A...0x0D ~= $0
+          })
+        else {
+          hasFinished = true
+          if latest < self.endIndex {
+            return (latest..<self.endIndex, .nothing)
+          } else {
+            return nil
           }
         }
 
-        // 3. Finalize any remaining trailing data after loop completion
-        finishedStream = true
-
-        if let crIndex = lastCrIndex {
-          let lineStart = start
-          start = self.index(after: crIndex)
-          return (lineStart..<crIndex, .carriageReturn)
+        let afterTerminator = self.index(after: terminatorStart)
+        let terminator: InternetLineTerminator
+        var nextStart = afterTerminator
+        switch self[terminatorStart] {
+        case 0x0A:
+          terminator = .lineFeed
+        case 0x0B:
+          terminator = .lineTabulation
+        case 0x0C:
+          terminator = .formFeed
+        case 0x0D:
+          if afterTerminator < self.endIndex, self[afterTerminator] == 0x0A {
+            terminator = .crlf
+            self.formIndex(after: &nextStart)
+          } else {
+            terminator = .carriageReturn
+          }
+        default:
+          preconditionFailure("This should not be reachable")
         }
+        defer { latest = nextStart }
 
-        if start < self.endIndex {
-          let lineStart = start
-          start = self.endIndex
-          return (lineStart..<self.endIndex, .nothing)
-        }
-
-        return nil
+        return (latest..<terminatorStart, terminator)
       }
     }
   }
@@ -140,119 +122,5 @@ extension AsyncSequence where Element == UInt8 {
   /// then what the line's terminating byte sequence is.
   public var internetLines: AsyncInternetLineSequence<Self, [UInt8]> {
     .init(self)
-  }
-}
-
-// MARK: - Implementation
-
-/// State machine identifying line-termination sequences within the stream of
-/// given bytes.
-struct SplitFinder {
-  /// Creates a line-splitting state machine.
-  init() {
-    // Nothing to do, but this is here for clarity.
-  }
-
-  /// Flag indicating if the last processed byte was a Carriage Return (`0xD`).
-  private(set) var previousWasCR = false
-
-  /// How the client should proceed after processing a byte.
-  enum Action {
-    /// Which policy to use after reading a byte that won't (immediately)
-    /// break a line.
-    enum Retention {
-      /// Signals that a Carriage Return (`0x0D`) was encountered and should be
-      /// tracked by the state machine.
-      case cr
-      /// Signals that the byte is a standard data byte (not a terminator) and
-      /// should be included in the current line buffer.
-      case normal
-    }
-
-    /// Signals a line break triggered by a standard terminator
-    /// (*e.g.*, `LF`, `VT`, `FF`).
-    case breakWith(terminator: InternetLineTerminator)
-    /// Signals a line break triggered by a character that followed a `CR`
-    /// (which itself terminated the previous line).
-    case breakWithCrThen(terminator: InternetLineTerminator)
-    /// Indicates that the previous `CR` should have broken the line,
-    /// and the current non-terminating character is the start of a new line.
-    case breakWithCrThenRetain
-    /// Indicates that a `CR` occurred, following a previous `CR`.
-    /// The first `CR` breaks the line, the second `CR` is retained for
-    /// the next potential line break.
-    case breakWithCrThenRetainCr
-    /// A single `CR` has been encountered.
-    /// It is held, waiting to see if the *next* byte is `LF` (to form `CRLF`)
-    /// or something else (which would finalize the line break at the `CR`).
-    case retainCr
-    /// The character is not a terminator and does not follow a `CR`.
-    /// It is appended to the current line.
-    case retain
-
-    /// Whether an enqueued line ending with a CR needs to be produced before
-    /// handling the current byte.
-    var doCrBreak: Bool {
-      switch self {
-      case .breakWithCrThen, .breakWithCrThenRetain, .breakWithCrThenRetainCr:
-        true
-      default:
-        false
-      }
-    }
-    /// Whether the queued bytes need to be immediately produced as a line with
-    /// the returned line-terminating sequence.
-    var primaryBreak: InternetLineTerminator? {
-      switch self {
-      case .breakWith(terminator: let cap),
-        .breakWithCrThen(terminator: let cap):
-        cap
-      default:
-        nil
-      }
-    }
-    /// How processed byte should be remembered for a later line production,
-    /// if it should.
-    var retention: Retention? {
-      switch self {
-      case .breakWithCrThenRetainCr, .retainCr:
-        .cr
-      case .breakWithCrThenRetain, .retain:
-        .normal
-      default:
-        nil
-      }
-    }
-  }
-
-  /// Considers the given byte with the current state to
-  /// return the next action the line-reading client should do.
-  mutating func callAsFunction(processing byte: UInt8)
-    -> Action
-  {
-    defer { previousWasCR = byte == 0xD }
-
-    return switch (byte, previousWasCR) {
-    case (0xA, true):
-      .breakWith(terminator: .crlf)
-    case (0xA, false):
-      .breakWith(terminator: .lineFeed)
-    case (0xB, true):
-      .breakWithCrThen(terminator: .lineTabulation)
-    case (0xB, false):
-      .breakWith(terminator: .lineTabulation)
-    case (0xC, true):
-      .breakWithCrThen(terminator: .formFeed)
-    case (0xC, false):
-      .breakWith(terminator: .formFeed)
-    case (0xD, true):
-      .breakWithCrThenRetainCr
-    case (0xD, false):
-      .retainCr
-    case (_, true):
-      .breakWithCrThenRetain
-    case (_, false):
-      .retain
-    }
   }
 }
